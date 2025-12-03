@@ -1,0 +1,83 @@
+# ================================
+# Node.js
+# ================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ================================
+# Environment variables
+# ================================
+.env
+.env.*    # .env.development, .env.production, etc.
+.env.local
+
+# ================================
+# React build (frontend)
+# ================================
+frontend/build/
+frontend/dist/
+frontend/.next/
+frontend/.parcel-cache/
+
+# ================================
+# Backend build (if generated)
+# ================================
+backend/build/
+backend/dist/
+
+# ================================
+# Logs
+# ================================
+logs/
+*.log
+*.log.*
+pm2-*.log
+
+# ================================
+# Docker & Volumes
+# ================================
+docker-data/
+postgres_data/
+redis_data/
+*/postgres_data/
+*/redis_data/
+*.pid
+
+# DO NOT commit Docker environment artifacts
+/.docker/
+/docker/volumes/
+/docker-compose.override.yml
+
+# ================================
+# CDK (AWS Cloud Development Kit)
+# ================================
+cdk.out/
+clouddevkit/cdk/cdk.out/
+
+# ================================
+# OS Specific
+# ================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ================================
+# Editor files
+# ================================
+.vscode/
+.idea/
+*.swp
+
+# ================================
+# Generated backups / dumps
+# ================================
+*.sql
+*.sql.gz
+*.dump
+*.backup
+*.rdb
+
+snippets.yaml

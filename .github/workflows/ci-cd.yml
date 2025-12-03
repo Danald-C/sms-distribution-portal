@@ -1,0 +1,42 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # FRONTEND
+      - name: Build frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+      # BACKEND
+      - name: Build backend
+        working-directory: ./backend
+        run: |
+          npm ci
+          npm run build || echo "no build step"
+
+      # CDK (OPTIONAL)
+      - name: CDK Deploy
+        if: always()
+        working-directory: ./clouddevkit/cdk
+        env:
+          AWS_REGION: us-east-1
+        run: |
+          npm ci
+          npx cdk deploy --require-approval=never

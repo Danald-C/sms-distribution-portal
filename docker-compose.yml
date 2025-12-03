@@ -1,0 +1,83 @@
+version: '3.9'
+
+services:
+  # ===========================
+  # PostgreSQL Database
+  # ===========================
+  postgres:
+    image: postgres:15
+    container_name: dc_sms_portal
+    restart: always
+    environment:
+      POSTGRES_USER: dcadmin
+      POSTGRES_PASSWORD: dcadmin
+      POSTGRES_DB: dc_sms_portal_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ===========================
+  # pgAdmin (Database GUI)
+  # ===========================
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: dc_sms_portal_pgadmin_client
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: kwadjodanq@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: dcadmin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+  # ===========================
+  # Redis (Optional)
+  # ===========================
+  redis:
+    image: redis:latest
+    container_name: redis_cache
+    restart: always
+    ports:
+      - "6379:6379"
+
+  # ===========================
+  # Backend API (Node.js)
+  # ===========================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dc_sms_portal_backend_api
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_USER: dcadmin
+      DATABASE_PASSWORD: dcadmin
+      DATABASE_NAME: dc_sms_portal_db
+      DATABASE_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+
+  # ===========================
+  # Frontend (React → Nginx)
+  # ===========================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dc_sms_portal_frontend_app
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
