@@ -34,7 +34,7 @@ jobs:
       # CDK (OPTIONAL)
       - name: CDK Deploy
         if: always()
-        working-directory: ./clouddevkit/cdk
+        working-directory: ./clouddevkit
         env:
           AWS_REGION: us-east-1
         run: |
