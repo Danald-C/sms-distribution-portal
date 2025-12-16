@@ -32,11 +32,11 @@ jobs:
           npm run build || echo "no build step"
 
       # CDK (OPTIONAL)
-      - name: CDK Deploy
-        if: always()
-        working-directory: ./clouddevkit
-        env:
-          AWS_REGION: us-east-1
-        run: |
-          npm ci
-          npx cdk deploy --require-approval=never
+      # - name: CDK Deploy
+      #   if: always()
+      #   working-directory: ./clouddevkit
+      #   env:
+      #     AWS_REGION: us-east-1
+      #   run: |
+      #     npm ci
+      #     npx cdk deploy --require-approval=never
