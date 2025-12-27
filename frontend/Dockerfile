@@ -1,5 +1,5 @@
 # Step 1: Build React app
-FROM node:18 AS build
+FROM node:18 AS builder
 WORKDIR /build/dist
 COPY package*.json ./
 RUN npm install
@@ -14,3 +14,4 @@ COPY --from=build /build/dist /usr/share/nginx/html
 EXPOSE 5173
 
 CMD ["nginx", "-g", "daemon off;"]
+
