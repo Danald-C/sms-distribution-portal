@@ -74,6 +74,16 @@ router.get('/me', requireAuth, async (req, res) => {
   res.json({ user: u.rows[0] });
 });
 
+/* ========= The middleware: hybridAuthenticate =========
+   Expects the token to be provided in:
+     - req.body.idToken  (from frontend firebase signInWithPopup)
+     - OR Authorization: Bearer <token> header
+   It will try Firebase first, then Cognito (if configured).
+   On success, sets:
+     - req.user (user object from DB)
+     - req.appAccessToken (string)
+   and calls next().
+*/
 async function hybridAuthenticate(req, res, next) {
   try {
     const idToken = (req.body && req.body.idToken) || (req.headers && req.headers.authorization && req.headers.authorization.split(' ')[1]) || null
@@ -157,61 +167,6 @@ async function hybridAuthenticate(req, res, next) {
     console.error('hybridAuthenticate error:', err)
     res.status(500).json({ error: 'Authentication failed' })
   }
-}
-
-/* Get user by email */
-async function dbGetUserByEmail(email) {
-  if (!email) return null
-  const res = await dbQuery('SELECT * FROM users WHERE email = $1 LIMIT 1', [email])
-  return res.rows[0] || null
-}
-
-/* Create user stub */
-async function dbCreateUser({ email, name, provider, provider_id, meta = {} }) {
-  const res = await dbQuery(
-    `INSERT INTO users (email, name, provider, provider_id, meta, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,now(),now())
-     RETURNING *`,
-    [email, name || null, provider || null, provider_id || null, meta]
-  )
-  return res.rows[0]
-}
-
-/* Update user stub */
-async function dbUpdateUser(id, { name, provider, provider_id, meta = {} }) {
-  const res = await dbQuery(
-    `UPDATE users SET name = COALESCE($2, name), provider = COALESCE($3, provider), provider_id = COALESCE($4, provider_id), meta = meta || $5::jsonb, updated_at = now() WHERE id = $1 RETURNING *`,
-    [id, name, provider, provider_id, meta]
-  )
-  return res.rows[0]
-}
-
-/* Store refresh token (hash it first). Returns the raw refresh token (to send as cookie) */
-async function dbStoreRefreshToken({ user_id, refreshTokenPlain, userAgent = null, ip = null, expiresAt = null }) {
-  // hash token
-  const saltRounds = 10
-  const tokenHash = await bcrypt.hash(refreshTokenPlain, saltRounds)
-  const res = await dbQuery(
-    `INSERT INTO refresh_tokens (user_id, token_hash, user_agent, ip, created_at, expires_at)
-     VALUES ($1,$2,$3,$4,now(),$5)
-     RETURNING id`,
-    [user_id, tokenHash, userAgent, ip, expiresAt]
-  )
-  return res.rows[0]
-}
-
-/* Validate a refresh token against stored hashes (not used here, but handy) */
-async function dbValidateRefreshToken(user_id, refreshTokenPlain) {
-  const res = await dbQuery(
-    `SELECT id, token_hash FROM refresh_tokens WHERE user_id = $1 ORDER BY created_at DESC`,
-    [user_id]
-  )
-  for (const row of res.rows) {
-    if (await bcrypt.compare(refreshTokenPlain, row.token_hash)) {
-      return row
-    }
-  }
-  return null
 }
 
 
@@ -312,63 +267,6 @@ function clearRefreshCookie(res) {
   res.clearCookie(REFRESH_COOKIE_NAME, { path: '/' })
 }
 
-
-// Example Postgres DDL (users table)
-
-/*
-CREATE TABLE users (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  email text UNIQUE NOT NULL,
-  password_hash text,
-  role text NOT NULL DEFAULT 'user', -- user|org-admin|admin
-  email_verified boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE TABLE users (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  name VARCHAR(255) NOT NULL,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash TEXT,
-  role ENUM('user', 'org-admin', 'admin') NOT NULL DEFAULT 'user',
-  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE refresh_tokens (
-  token text PRIMARY KEY,
-  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
-  expires_at timestamptz NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE TABLE refresh_tokens (
-  token TEXT PRIMARY KEY,
-  user_id CHAR(36),
-  expires_at TIMESTAMP NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_user_refresh_tokens
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON DELETE CASCADE
-);
-
-CREATE TABLE email_tokens (
-  token text PRIMARY KEY,
-  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
-  type text NOT NULL, -- verification|password_reset
-  expires_at timestamptz NOT NULL
-);
-CREATE TABLE email_tokens (
-  token VARCHAR(512) PRIMARY KEY,
-  user_id CHAR(36),
-  type ENUM('verification', 'password_reset') NOT NULL,
-  expires_at TIMESTAMP NOT NULL,
-  CONSTRAINT fk_user_email_tokens
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON DELETE CASCADE
-);
-*/
 
 module.exports = {
   hybridAuthenticate,
