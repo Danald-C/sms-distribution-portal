@@ -7,8 +7,13 @@ const router = express.Router()
 const bcrypt = require('bcrypt')
 const { Pool } = require('pg')
 const crypto = require('crypto')
+const { v4: uuidv4 } = require('uuid');
 
 const authMiddleware = require('../middleware/authMiddleware');
+
+const { redis, REUSE_WINDOW_SEC } = require('../lib/redisClient');
+// const { sendReuseAlert } = require('../lib/email');
+const tokenStore = require('../lib/tokenStore');
 
 // EMAIL PASSWORD
 
@@ -16,6 +21,7 @@ function signAccessToken(user) {
   const payload = { sub: user.id, email: user.email, name: user.name || null }
   return jwt.sign(payload, APP_JWT_SECRET || 'dev-secret', { expiresIn: APP_JWT_EXPIRES })
 }
+
 
 function generateRefreshToken() {
   return crypto.randomBytes(48).toString('hex')
@@ -26,7 +32,7 @@ function signAccessToken(user) {
   return jwt.sign(payload, APP_JWT_SECRET || 'dev-secret', { expiresIn: APP_JWT_EXPIRES })
 }
 
-function setRefreshCookie(res, tokenPlain) {
+/* function setRefreshCookie(res, tokenPlain) {
   const days = Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30
   const maxAge = days * 24 * 60 * 60 * 1000
   res.cookie(REFRESH_COOKIE_NAME, tokenPlain, {
@@ -36,6 +42,17 @@ function setRefreshCookie(res, tokenPlain) {
     maxAge,
     path: '/'
   })
+} */
+function setRefreshCookie(res, tokenId, tokenPlain) {
+  const days = Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30;
+  const maxAge = days * 24 * 60 * 60 * 1000;
+  res.cookie(REFRESH_COOKIE_NAME, `${tokenId}.${tokenPlain}`, {
+    httpOnly: true,
+    secure: NODE_ENV === 'production',
+    sameSite: 'Lax',
+    maxAge,
+    path: '/'
+  });
 }
 
 /* Store hashed refresh token and meta, return DB record (id) */
@@ -97,7 +114,7 @@ router.post('/verify-email', async (req, res) => {
 });
 
 // Refresh
-router.post('/refresh', express.json(), async (req, res) => {
+/* router.post('/refresh', express.json(), async (req, res) => {
   const token = req.cookies.refresh_token;
   if (!token) return res.status(401).end();
   try {
@@ -225,7 +242,116 @@ router.post('/refresh', express.json(), async (req, res) => {
     console.error('refresh error', err)
     res.status(500).json({ error: 'Server error' })
   }
-})
+}) */
+/* -------- refresh with reuse detection -------- */
+router.post('/refresh', express.json(), async (req, res) => {
+  try {
+    const cookie = req.cookies && req.cookies[REFRESH_COOKIE_NAME];
+    const bodyToken = req.body && req.body.refreshToken;
+    const raw = cookie || bodyToken;
+    if (!raw) return res.status(400).json({ error: 'No refresh token provided' });
+
+    const idx = raw.indexOf('.');
+    if (idx === -1) return res.status(400).json({ error: 'Malformed token' });
+    const tokenId = raw.slice(0, idx);
+    const tokenPlain = raw.slice(idx + 1);
+
+    const row = await tokenStore.getRefreshRowByTokenId(tokenId);
+    if (!row) return res.status(401).json({ error: 'Invalid refresh token' });
+
+    if (row.revoked) {
+      // token id exists but is revoked — suspicious reuse attempt
+      // increment reuse counter in Redis and trigger alert if threshold exceeded
+      const reuseKey = `reuse:${tokenId}`;
+      const count = await redis.incr(reuseKey);
+      await redis.expire(reuseKey, REUSE_WINDOW_SEC);
+
+      // if repeated reuse (e.g. >3) escalate
+      if (count >= 2) {
+        // revoke all tokens for user and log incident
+        await tokenStore.revokeAllTokensForUser(row.user_id);
+        await dbQuery('INSERT INTO auth_incidents (user_id, incident_type, detail) VALUES ($1,$2,$3)', [
+          row.user_id,
+          'refresh_token_reuse_revoked',
+          JSON.stringify({ tokenId, ip: req.ip, userAgent: req.get('User-Agent'), reason: 'reused_revoked_token' })
+        ]);
+
+        // notify admin
+        try {
+          await sendReuseAlert({
+            userId: row.user_id,
+            ip: req.ip,
+            device: req.get('User-Agent'),
+            tokenId,
+            note: `Revoked all sessions after ${count} reuse attempts`
+          });
+        } catch (e) {
+          console.error('sendReuseAlert failed', e);
+        }
+
+        return res.status(401).json({ error: 'Refresh token reuse detected. All sessions revoked.' });
+      }
+
+      return res.status(401).json({ error: 'Refresh token revoked' });
+    }
+
+    if (row.expires_at && new Date(row.expires_at) < new Date()) {
+      await tokenStore.revokeRefreshRowByTokenId(tokenId);
+      return res.status(401).json({ error: 'Refresh token expired' });
+    }
+
+    // verify hash match
+    const match = await bcrypt.compare(tokenPlain, row.token_hash);
+    if (!match) {
+      // tokenId exists but tokenPlain doesn't match -> reuse attempt
+      // action: revoke all tokens for user, log incident, send email
+      await tokenStore.revokeAllTokensForUser(row.user_id);
+      await dbQuery('INSERT INTO auth_incidents (user_id, incident_type, detail) VALUES ($1,$2,$3)', [
+        row.user_id,
+        'refresh_token_reuse_detected',
+        JSON.stringify({ tokenId, ip: req.ip, userAgent: req.get('User-Agent') })
+      ]);
+
+      try {
+        await sendReuseAlert({
+          userId: row.user_id,
+          ip: req.ip,
+          device: req.get('User-Agent'),
+          tokenId,
+          note: 'Token id seen with mismatched token value (possible replay). All sessions revoked.'
+        });
+      } catch (e) {
+        console.error('sendReuseAlert failed', e);
+      }
+
+      return res.status(401).json({ error: 'Refresh token reuse detected. All sessions revoked.' });
+    }
+
+    // If we reach here, token is valid. ROTATE: create new token pair and revoke old.
+    const newTokenPlain = crypto.randomBytes(48).toString('hex');
+    const newTokenId = uuidv4();
+    const expiresAt = new Date(Date.now() + (Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30) * 24*60*60*1000).toISOString();
+
+    await tokenStore.storeRefreshTokenRow({ user_id: row.user_id, tokenPlain: newTokenPlain, tokenId: newTokenId, ip: req.ip || null, userAgent: req.get('User-Agent') || null, expiresAt, replacedBy: tokenId });
+
+    await tokenStore.revokeRefreshRowByTokenId(tokenId);
+
+    // issue new access token
+    const users = await dbQuery('SELECT * FROM users WHERE id = $1 LIMIT 1', [row.user_id]);
+    const user = users[0];
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    const accessToken = signAccessToken(user);
+
+    // set new cookie
+    setRefreshCookie(res, newTokenId, newTokenPlain);
+    res.json({ accessToken });
+  } catch (err) {
+    console.error('refresh error', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Login
 router.post('/login', express.json(), async (req, res) => {
@@ -248,7 +374,9 @@ router.post('/login', express.json(), async (req, res) => {
     await db.pool.query('INSERT INTO refresh_tokens(token,user_id,expires_at) VALUES($1,$2,$3)', [refreshToken, u.id, new Date(Date.now()+30*24*3600*1000)]); */
     // generate refresh token, store hashed
     const refreshTokenPlain = generateRefreshToken()
+    const tokenId = uuidv4();
     const expiresAt = new Date(Date.now() + (Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30) * 24 * 60 * 60 * 1000).toISOString()
+    await tokenStore.storeRefreshTokenRow({ user_id: u.id, refreshTokenPlain, tokenId, ip: req.ip || null, userAgent: req.get('User-Agent') || null, expiresAt });
     await storeRefreshToken({
       user_id: u.id,
       tokenPlain: refreshTokenPlain,
@@ -269,20 +397,25 @@ router.post('/login', express.json(), async (req, res) => {
 });
 
 // Logout
-router.post('/logout', async (req, res) => {
+/* router.post('/logout', async (req, res) => {
   const token = req.cookies.refresh_token;
   if (token) await db.pool.query('DELETE FROM refresh_tokens WHERE token=$1', [token]);
   res.clearCookie('refresh_token');
   res.json({ ok: true });
-});
+}); */
 router.post('/logout', async (req, res) => {
   try {
     const cookieToken = req.cookies && req.cookies[REFRESH_COOKIE_NAME]
     const bodyToken = req.body && req.body.refreshToken
     const tokenPlain = cookieToken || bodyToken
     if (!tokenPlain) {
+      const idx = tokenPlain.indexOf('.');
       // still clear cookie
       res.clearCookie(REFRESH_COOKIE_NAME, { path: '/' })
+      if (idx !== -1) {
+        const tokenId = tokenPlain.slice(0, idx);
+        await tokenStore.revokeRefreshRowByTokenId(tokenId);
+      }
       return res.json({ ok: true })
     }
 

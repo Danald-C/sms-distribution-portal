@@ -20,6 +20,26 @@ const db = require("./db.js"); // your DB connection
   - Role-based checks via middleware
 -------------------------------------------------------------------*/
 
+/* ========= Initialize Firebase admin if service account provided ========= */
+try {
+  if (FIREBASE_SERVICE_ACCOUNT && !admin.apps.length) {
+    let sa
+    try {
+      // If the env var contains JSON string, parse it; otherwise treat as a path
+      sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT)
+    } catch (e) {
+      // assume it's a path to file
+      sa = require(FIREBASE_SERVICE_ACCOUNT)
+    }
+    admin.initializeApp({
+      credential: admin.credential.cert(sa)
+    })
+    console.log('Firebase admin initialized.')
+  }
+} catch (e) {
+  console.warn('Unable to initialize firebase-admin:', e && e.message)
+}
+
 /* ========= Cognito JWKS client (optional) ========= */
 let cognitoClient = null
 if (db.envDefs.COGNITO_POOL_ID && db.envDefs.AWS_REGION) {
@@ -273,10 +293,10 @@ module.exports = {
   // exported for other routes to sign app tokens or manage refresh tokens
   createAppAccessToken,
   generateRefreshTokenPlain,
-  dbValidateRefreshToken,
+  // dbValidateRefreshToken,
   clearRefreshCookie,
   // DB helpers exported for convenience (you can also import db.js in your project)
-  dbGetUserByEmail,
+  /* dbGetUserByEmail,
   dbCreateUser,
-  dbUpdateUser
+  dbUpdateUser */
 };

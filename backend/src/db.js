@@ -15,7 +15,8 @@ const {
   AWS_REGION,
   FIREBASE_SERVICE_ACCOUNT, // path to service account JSON or JSON string
   REFRESH_COOKIE_NAME = 'sms_refresh',
-  NODE_ENV
+  NODE_ENV,
+  REFRESH_TOKEN_EXPIRES_DAYS = '30',
 } = process.env
 
 const envDefs = {COGNITO_POOL_ID, AWS_REGION}
@@ -26,41 +27,21 @@ const DATABASE_URL = {
     database: DB_NAME,
     password: DB_PASSWORD,
     port: DB_PORT,
+    ssl: false, // or true if using managed db
   }
 
 /* ========= Initialize Postgres pool ========= */
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  // optionally add ssl config if needed in production
-})
+const pool = new Pool(DATABASE_URL)
 console.log('Postgres pool initialized.', DATABASE_URL)
-
-if (!DATABASE_URL) {
-  console.warn('Warning: DATABASE_URL not set. DB calls will fail until configured.')
-}
-if (!APP_JWT_SECRET) {
-  console.warn('Warning: APP_JWT_SECRET not set. App tokens will be unsigned/insecure until configured.')
-}
-
-/* ========= Initialize Firebase admin if service account provided ========= */
-try {
-  if (FIREBASE_SERVICE_ACCOUNT && !admin.apps.length) {
-    let sa
-    try {
-      // If the env var contains JSON string, parse it; otherwise treat as a path
-      sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT)
-    } catch (e) {
-      // assume it's a path to file
-      sa = require(FIREBASE_SERVICE_ACCOUNT)
-    }
-    admin.initializeApp({
-      credential: admin.credential.cert(sa)
-    })
-    console.log('Firebase admin initialized.')
+const connString = async () => {
+  try {
+    const res = await pool.query('SELECT 1');
+    console.log('✅ PostgreSQL connected successfully');
+  } catch (err) {
+    console.error('❌ PostgreSQL connection failed:', err.message);
   }
-} catch (e) {
-  console.warn('Unable to initialize firebase-admin:', e && e.message)
-}
+};
+connString()
 
 /* Utility: query helper */
 async function dbQuery(queryText, params) {
@@ -71,6 +52,16 @@ async function dbQuery(queryText, params) {
     client.release()
   }
 }
+
+/* DELETE FROM user_tokens
+WHERE expires_at IS NOT NULL
+  AND expires_at < NOW();
+// Optional: auto-delete expired tokens. You could later run that as a cron job.
+
+If you want revoked tokens to always have a timestamp:
+UPDATE refresh_tokens
+SET revoked_at = NOW()
+WHERE revoked = TRUE AND revoked_at IS NULL; */
 
 /* Get user by email */
 async function dbGetUserByEmail(email) {
@@ -126,6 +117,14 @@ async function dbValidateRefreshToken(user_id, refreshTokenPlain) {
   }
   return null
 }
+
+async function run() {
+  console.log('Pruning revoked tokens older than 90 days...');
+  await pool.query("DELETE FROM refresh_tokens WHERE revoked = true AND revoked_at < now() - interval '90 days'");
+  console.log('Done pruning.');
+  await pool.end();
+}
+run().catch(e=>{ console.error(e); process.exit(1); });
 
 async function execute(query){
   try{
@@ -190,6 +189,10 @@ CREATE TABLE refresh_tokens ( // MySQL version
     FOREIGN KEY (user_id) REFERENCES users(id)
     ON DELETE CASCADE
 );
+ALTER TABLE refresh_tokens
+ADD COLUMN IF NOT EXISTS revoked BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ NULL;
+
 
 CREATE TABLE email_tokens (
   token text PRIMARY KEY,
@@ -208,16 +211,44 @@ CREATE TABLE email_tokens ( // MySQL version
 );
 
 CREATE TABLE IF NOT EXISTS user_tokens (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
     refresh_token TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NULL,
-    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NULL,
+    CONSTRAINT fk_user_tokens_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
 );
+
 If you want refresh tokens to expire (recommended), you can update them like this:
 
 ALTER TABLE user_tokens
-ADD COLUMN expires_at TIMESTAMP NULL AFTER created_at; */
+ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_user_tokens_user_id
+    ON user_tokens (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_user_tokens_created_at
+    ON user_tokens (created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_tokens_refresh_token
+    ON user_tokens (refresh_token);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked
+ON refresh_tokens (revoked);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked_at
+ON refresh_tokens (revoked_at);
+
+
+CREATE TABLE IF NOT EXISTS auth_incidents (
+  id serial PRIMARY KEY,
+  user_id integer NULL,
+  incident_type text NOT NULL,
+  detail jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz DEFAULT now()
+); */
 
 module.exports = {envDefs, pool, execute}
