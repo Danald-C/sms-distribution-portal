@@ -4,14 +4,18 @@ services:
   # ===========================
   postgres:
     image: postgres:15
-    container_name: dc_sms_portal
-    restart: always
+    container_name: dc_sms_portal_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dcadmin -d dc_sms_portal_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     environment:
-      POSTGRES_USER: dcadmin
-      POSTGRES_PASSWORD: dcadmin
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: dc_sms_portal_db
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -47,23 +51,46 @@ services:
     image: danald/backend:latest
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: dc_sms_portal_backend_api
+    command: npm run devStart
     restart: always
     ports:
-      - "5000:5000"
+      - "4000:4000"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
+      - ./backend/package-lock.json:/app/package-lock.json
     environment:
-      DATABASE_HOST: postgres
-      DATABASE_USER: dcadmin
-      DATABASE_PASSWORD: dcadmin
-      DATABASE_NAME: dc_sms_portal_db
-      DATABASE_PORT: 5432
+      DOCKER: "true"
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_USER: dcadmin
+      DB_PASSWORD: dcadmin
+      DB_NAME: dc_sms_portal_db
+      DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    
+  sms-worker:
+    image: danald/backend:latest
+    working_dir: /app
+    environment:
+      DB_HOST: postgres
+      DB_USER: dcadmin
+      DB_PASSWORD: dcadmin
+      DB_NAME: dc_sms_portal_db
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
       - redis
-
+  
   # ===========================
   # Frontend (React → Nginx)
   # ===========================

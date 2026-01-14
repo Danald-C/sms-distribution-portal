@@ -25,7 +25,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node src/server.js",
-    "devStart": "nodemon src/server.js"
+    "devStart": "nodemon --legacy-watch src/server.js",
+    "worker": "node src/worker/sms-worker.js"
   },
   "keywords": [],
   "author": "",

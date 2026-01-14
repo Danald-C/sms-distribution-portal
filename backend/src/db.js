@@ -23,25 +23,32 @@ const envDefs = {COGNITO_POOL_ID, AWS_REGION}
 
 const DATABASE_URL = {
     user: DB_USER,
-    host: DB_HOST,
+    host: DB_HOST || 'postgres',
     database: DB_NAME,
     password: DB_PASSWORD,
-    port: DB_PORT,
+    port: Number(DB_PORT) || 5432,
     ssl: false, // or true if using managed db
   }
 
+
+/*  DB_USER = 'dcadmin'
+DB_PASSWORD = 'dcadmin'
+DB_HOST = 'localhost'
+DB_NAME = 'dc_sms_portal_db'
+DB_PORT = 5433
+
+DATABASE_URL=postgres://postgres:postgres@db:5432/dc_sms_portal_db */
+
+const dbObj = {
+  DB_USER,
+  DB_PASSWORD,
+  DB_HOST,
+  DB_NAME,
+  DB_PORT
+}
+
 /* ========= Initialize Postgres pool ========= */
 const pool = new Pool(DATABASE_URL)
-console.log('Postgres pool initialized.', DATABASE_URL)
-const connString = async () => {
-  try {
-    const res = await pool.query('SELECT 1');
-    console.log('✅ PostgreSQL connected successfully');
-  } catch (err) {
-    console.error('❌ PostgreSQL connection failed:', err.message);
-  }
-};
-connString()
 
 /* Utility: query helper */
 async function dbQuery(queryText, params) {
@@ -119,9 +126,9 @@ async function dbValidateRefreshToken(user_id, refreshTokenPlain) {
 }
 
 async function run() {
-  console.log('Pruning revoked tokens older than 90 days...');
+  // console.log('Pruning revoked tokens older than 90 days...');
   await pool.query("DELETE FROM refresh_tokens WHERE revoked = true AND revoked_at < now() - interval '90 days'");
-  console.log('Done pruning.');
+  // console.log('Done pruning.');
   await pool.end();
 }
 run().catch(e=>{ console.error(e); process.exit(1); });
@@ -251,4 +258,4 @@ CREATE TABLE IF NOT EXISTS auth_incidents (
   created_at timestamptz DEFAULT now()
 ); */
 
-module.exports = {envDefs, pool, execute}
+module.exports = {envDefs, pool, execute, dbObj}

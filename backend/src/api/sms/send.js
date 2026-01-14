@@ -6,7 +6,9 @@ const pool = require('./db'); // postgres pool
 
 const router = express.Router();
 const upload = multer();
+// const smsQueue = new Queue('sms-send', { connection: { host: 'localhost', port: 6379 } });
 const smsQueue = new Queue('sms-send', { connection: { host: 'localhost', port: 6379 } });
+
 
 router.post('/send', upload.single('recipients'), async (req, res) => {
   const userId = req.user.id; // assume auth middleware
@@ -42,6 +44,8 @@ router.post('/send', upload.single('recipients'), async (req, res) => {
   await pool.query('COMMIT');
   res.json({ queued: true, totalUnits });
 });
+
+module.exports = router;
 
 // Worker (sms-worker.js): consumes queue and calls SMS provider API (e.g., Twilio, Infobip, Africa's APIs)
 // For West Africa, you may integrate local providers (Africa's Talking, MTN APIs, 3rd-party aggregators). Use provider that supports local origination.

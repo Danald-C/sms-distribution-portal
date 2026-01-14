@@ -37,7 +37,7 @@ try {
     console.log('Firebase admin initialized.')
   }
 } catch (e) {
-  console.warn('Unable to initialize firebase-admin:', e && e.message)
+  // console.warn('Unable to initialize firebase-admin:', e && e.message)
 }
 
 /* ========= Cognito JWKS client (optional) ========= */
