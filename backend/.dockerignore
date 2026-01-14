@@ -3,5 +3,6 @@ node_modules
 .env
 npm-debug.log
 Dockerfile
+Dockerfile.dev
 docker-compose*
 dist
