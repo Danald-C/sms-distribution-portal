@@ -4,21 +4,26 @@ const upload = multer()
 const router = express.Router()
 
 const csvParse = require('csv-parse');
-const { Queue } = require('bullmq');
 
-// const { redis } = require('../lib/redisClient');
+const { connectionRedis } = require('../lib/redisClient');
+const { processWorker } = require('../worker/sms-worker');
+
+const { Queue } = require('bullmq');
 
 // const IORedis = require('ioredis');
 
-// const smsQueue = new Queue('sms-send', { connection: { host: process.env.REDIS_HOST || 'localhost', port: 6379 } });
-/* const smsQueue = new Queue('sms-queue', { redis });
+// const { sendSmsViaProvider} = require('../worker/sms-worker');
+console.log('Redis connecting to:', connectionRedis.options.host + ':' + connectionRedis.options.port);
 
-async function enqueueSms({ to, message }) {
-  await smsQueue.add('send-sms', { to, message }, {
+// const smsQueue = new Queue('sms-send', { connection: { host: process.env.REDIS_HOST || 'localhost', port: 6379 } });
+const smsQueue = new Queue('sms-queue', { connection: connectionRedis });
+
+async function enqueueSms({sender, to, message }) {
+  await smsQueue.add('send-sms', { sender, to, message }, {
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 }
   });
-} */
+}
 
 
 //*******  */
@@ -79,32 +84,34 @@ axios(config)
 }); */
 //*******  */
 
-router.post('/api/sms-send', async (req, res) => {
-  const { to, message } = req.body;
-  await enqueueSms({ to, message });
+router.post('/send', async (req, res) => {
+  const { sender, to, message } = req.body;
+  await enqueueSms({ sender, to, message });
+  await processWorker(); // start the worker to process SMS jobs
   res.json({ status: 'queued' });
 });
 
-router.post('/send', upload.single('recipients'), async (req,res)=>{
+/* router.post('/send', upload.single('recipients'), async (req,res)=>{
   // Validate request, compute units, enqueue job to send SMS
   // Use Redis/BullMQ worker for sending
   res.json({ ok:true })
-})
+}) */
 
 
-router.post('/send', upload.single('recipients'), async (req, res) => {
+/* router.post('/send', upload.single('recipients'), async (req, res) => {
   try {
   const message = req.body.message || '';
   const unitsPerMsg = Math.max(1, Math.ceil(message.length / 160));
+  const getFile = req.file;
 
 
-  if (!req.file) return res.status(400).json({ error: 'No recipients file uploaded' });
+  if (!getFile) return res.status(400).json({ error: 'No recipients file uploaded' });
 
 
   // parse CSV buffer
   const recipients = [];
-  const str = req.file.buffer.toString('utf8');
-  csvParse(str, { columns: false, trim: true }, (err, rows) => {
+  const fileContents = getFile.buffer.toString('utf8'); // Data/Contacts in file
+  csvParse(fileContents, { columns: false, trim: true }, (err, rows) => {
   if (err) return res.status(400).json({ error: 'CSV parse error' });
   rows.forEach(r => {
   const phone = Array.isArray(r) ? r[0] : r;
@@ -118,6 +125,6 @@ router.post('/send', upload.single('recipients'), async (req, res) => {
   console.error(err);
   res.status(500).json({ error: 'in'});
   }
-});
+}); */
 
-module.exports = {router}
+module.exports = { router }

@@ -5,17 +5,16 @@ const IORedis = require('ioredis');
   host: process.env.REDIS_HOST || 'redis',
   port: 6379
 }); */
-const redis = new IORedis({
+const connectionRedis = new IORedis({
   host: process.env.REDIS_HOST || 'redis',
   port: Number(process.env.REDIS_PORT) || 6379,
   maxRetriesPerRequest: null,
   enableReadyCheck: false
 });
-// console.log('Redis connecting to:', process.env);
 
 const REUSE_WINDOW_SEC = 60 * 60 * 24; // 24 hours for reuse counters
 
 module.exports = {
-  redis,
+  connectionRedis,
   REUSE_WINDOW_SEC
 };

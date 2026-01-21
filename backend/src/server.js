@@ -1,5 +1,4 @@
 if(!process.env.DOCKER && process.env.NODE_ENV !== 'production') {
-console.log('So, this is where we load DOTENV');
     require('dotenv').config({override: false});
 }
 
@@ -27,25 +26,26 @@ const app = express()
 app.use(cors());
 app.use(cookieParser())
 app.use(bodyParser.json())
+// app.use(express.json())
 
-    /* const connString = async () => {
+    const connString = async () => {
       try {
         const res = await pool.query('SELECT 1');
         console.log('✅ PostgreSQL connected successfully');
       } catch (err) {
         console.error('❌ PostgreSQL connection failed:', err.message);
       }
-    }; */
+    };
 // mount APIs
 // console.log('I just added this one right here...')
-console.log('Postgres pool initialized.', dbObj)
+console.log('Process ENV Here.', process.env.SMS_PROVIDER_API_URL)
 // connString()
 app.use('/', router.get('/', (req, res) => {
     res.send('API is running...')
     // res.render('API is running...')
 }))
 app.use('/api/auth', authRoutes)
-// app.use('/api/sms', smsRoutes.router)
+app.use('/api/sms', smsRoutes.router)
 app.use('/api/payments', paymentsRoutes)
 
 app.use(cors());

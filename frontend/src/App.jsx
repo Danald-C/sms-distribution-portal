@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import AuthProvider, { useAuth, ProtectedRoute } from './components/contexts/auth.jsx';
-// import Dashboard from './components/dashboard/file.jsx';
-import SmsComposer from './components/SmsComposer/file.jsx';
+import AuthProvider, { useAuth, ProtectedRoute } from './Contexts/auth.jsx';
+import Dashboard from './components/Dashboard/file.jsx';
+import GetContacts from './components/GetContacts/file.jsx';
 // import GoogleLoginButton from './components/Auth/GoogleLoginButton.jsx';
 // import SmsPortalDemo from './pages/composeSMS.jsx';
 // import LetsFindOut from  './pages/letsfindout.jsx';
@@ -49,10 +49,10 @@ function App() {
 
               <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="col-span-2">
-                  <SmsComposer />
+                  <GetContacts />
                 </div>
                 <div>
-                  {/* <Dashboard /> */}
+                  <Dashboard />
                 </div>
                 <div>
                   {/* <SmsPortalDemo /> */}

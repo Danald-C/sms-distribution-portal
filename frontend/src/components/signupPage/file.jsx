@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuth } from '../contexts/auth.jsx';
+import { useAuth } from '../../Contexts/auth.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 
 
