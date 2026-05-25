@@ -18,9 +18,29 @@ export default function SignupPage() {
     }
   }
 
+
+  //  *** ***
+  function handleCredentialResponse(response) {
+    // This credential is a JWT that should be sent to your backend for verification
+    console.log("Encoded JWT ID token: " + response.credential);
+    
+    // Decoding the JWT locally (for UI updates only - NOT for security)
+    const responsePayload = parseJwt(response.credential);
+    console.log("ID: " + responsePayload.sub);
+    console.log('Full Name: ' + responsePayload.name);
+    console.log("Email: " + responsePayload.email);
+  }
+
+  function parseJwt (token) {
+      var base64Url = token.split('.')[1];
+      var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(window.atob(base64));
+  }
+
+
   return (
     <>
-      <form onSubmit={submit} className="max-w-md mx-auto p-6 bg-white rounded-lg">
+      <form id="g_id_onload" data-client_id="YOUR_GOOGLE_CLIENT_ID" data-callback={handleCredentialResponse} onSubmit={submit} className="max-w-md mx-auto p-6 bg-white rounded-lg">
         <h2 className="text-lg font-semibold mb-4">Register</h2>
         <input className="w-full p-2 mb-2 border rounded" placeholder="Full name" value={payload.name} onChange={(e) => setPayload({ ...payload, name: e.target.value })} />
         <input className="w-full p-2 mb-2 border rounded" placeholder="Email" value={payload.email} onChange={(e) => setPayload({ ...payload, email: e.target.value })} />

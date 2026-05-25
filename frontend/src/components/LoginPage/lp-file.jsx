@@ -1,9 +1,11 @@
 import { useState } from "react";
 // import { useAuth } from '../../App.jsx';
-import { useAuth } from '../Contexts/auth.jsx';
+import { useAuth } from '../../Contexts/auth.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 
-export default function LoginPage() {
+import GoogleLoginButton from '../components/GoogleLoginButton'
+
+/* export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +26,7 @@ export default function LoginPage() {
 
   return (
     <>
-    <form onSubmit={submit} className="max-w-md mx-auto p-6 bg-white rounded-lg">
+    <form class="g_id_signin" data-type="standard" onSubmit={submit} className="max-w-md mx-auto p-6 bg-white rounded-lg">
       <h2 className="text-lg font-semibold mb-4">Login</h2>
       <input className="w-full p-2 mb-2 border rounded" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input type="password" className="w-full p-2 mb-4 border rounded" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -33,4 +35,25 @@ export default function LoginPage() {
     <div className="">Or <Link to='/signup'>Signup</Link></div>
     </>
   );
+} */
+
+
+
+export default function LoginPage() {
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+
+      <div className="bg-white p-8 rounded-2xl shadow-lg">
+
+        <h1 className="text-2xl font-bold mb-6">
+          Sign in to SMS Platform
+        </h1>
+
+        <GoogleLoginButton />
+
+      </div>
+
+    </div>
+  )
 }

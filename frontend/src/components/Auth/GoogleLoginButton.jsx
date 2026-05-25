@@ -3,6 +3,9 @@
 import { signInWithPopup } from 'firebase/auth'
 import firebase from './FirebaseConfig'
 
+import { GoogleLogin } from '@react-oauth/google'
+
+
 /* const firebaseConfig = {
     apiKey: "YOUR_FIREBASE_API_KEY",
     authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
@@ -62,4 +65,41 @@ export function LogoutButton() {
       Logout
     </button>
   );
+}
+
+
+export default function GoogleLoginButton() {
+
+  const handleSuccess = async (credentialResponse) => {
+
+    console.log(credentialResponse)
+
+    const response = await fetch(
+      'http://localhost:5000/auth/google',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          credential: credentialResponse.credential,
+        }),
+      }
+    )
+
+    const data = await response.json()
+
+    console.log(data)
+  }
+
+  const handleError = () => {
+    console.log('Login Failed')
+  }
+
+  return (
+    <GoogleLogin
+      onSuccess={handleSuccess}
+      onError={handleError}
+    />
+  )
 }

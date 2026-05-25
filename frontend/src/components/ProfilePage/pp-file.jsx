@@ -1,5 +1,5 @@
 // import React from 'react';
-import { useAuth } from '../Contexts/auth.jsx';
+import { useAuth } from '../../Contexts/auth.jsx';
 
 export default function ProfilePage() {
   const { user } = useAuth();
