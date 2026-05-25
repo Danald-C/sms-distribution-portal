@@ -4,6 +4,9 @@ const { Pool } = require('pg')
 const { APP_JWT_SECRET, DATABASE_URL } = process.env
 const pool = new Pool({ connectionString: DATABASE_URL })
 
+
+// const token = jwt.sign({ userId: user.id, }, process.env.JWT_SECRET, { expiresIn: '7d', })
+
 async function getUserById(id) {
   const res = await pool.query('SELECT id, email, name FROM users WHERE id = $1 LIMIT 1', [id])
   return res.rows[0] || null

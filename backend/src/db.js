@@ -256,6 +256,18 @@ CREATE TABLE IF NOT EXISTS auth_incidents (
   incident_type text NOT NULL,
   detail jsonb DEFAULT '{}'::jsonb,
   created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE contacts (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(255),
+    phone_number VARCHAR(20) UNIQUE NOT NULL,
+    country_code VARCHAR(10),
+    country_name VARCHAR(100),
+    verified BOOLEAN DEFAULT FALSE,
+    verification_code VARCHAR(10),
+    verification_expires TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
 ); */
 
 module.exports = {envDefs, pool, execute, dbObj}

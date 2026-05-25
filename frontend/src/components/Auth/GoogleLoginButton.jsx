@@ -3,6 +3,11 @@
 import { signInWithPopup } from 'firebase/auth'
 import firebase from './FirebaseConfig'
 
+import { useAuth } from '../../Contexts/auth.jsx';
+import { useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google'
+
+
 /* const firebaseConfig = {
     apiKey: "YOUR_FIREBASE_API_KEY",
     authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
@@ -16,7 +21,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider(); */
 
-export default function GoogleLoginButton({ onLogin }){
+/* export default function GoogleLoginButton({ onLogin }){
     async function handleLogin(){
         try {
         const result = await signInWithPopup(firebase.auth, firebase.provider)
@@ -32,7 +37,7 @@ export default function GoogleLoginButton({ onLogin }){
     }
 
     return <button onClick={handleLogin} className="px-4 py-2 bg-red-600 text-white rounded">Sign in with Google</button>
-}
+} */
 
 export function FirebaseAuthWatcher({ onUserChanged }) {
   useEffect(() => {
@@ -56,10 +61,72 @@ export function FirebaseAuthWatcher({ onUserChanged }) {
   return null;
 }
 
-export function LogoutButton() {
+/* export function LogoutButton() {
+  localStorage.removeItem('token')
   return (
     <button onClick={() => signOut(auth)} className="px-4 py-2 bg-gray-600 text-white rounded-lg">
       Logout
     </button>
   );
+} */
+
+
+function GoogleLoginButton() {
+  const { googleLogin } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSuccess = async (credentialResponse) => {
+
+    console.log(JSON.stringify(credentialResponse))
+    
+    try {
+      const response = await fetch('http://localhost:4000/api/auth/googleoauth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            credential: credentialResponse.credential,
+          }),
+
+        })
+      const data = await response.json()
+      
+      // console.log(JSON.parse(localStorage.getItem('user')))
+      // console.log(data)
+      if (data.success) {
+        googleLogin(data);
+        navigate("/profile");
+      }else{
+        navigate("/");
+      }
+    } catch (error) {
+      console.error("Google login failed:", error);
+    }
+  }
+
+  const handleError = () => {
+    console.log('Login Failed')
+  }
+
+  return <GoogleLogin onSuccess={handleSuccess} onError={handleError} />
+}
+
+export default function GoogleLoginArea(){
+  const { loading } = useAuth();
+  // console.log(window.location.origin);
+  // console.log(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+  
+  // if (loading) return <div>Loading...</div>;
+
+  return(
+    <>
+      {/* {loading && <div>Loading...</div>} */}
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="bg-white p-8 rounded-2xl shadow-lg">
+          <GoogleLoginButton />
+        </div>
+      </div>
+    </>
+  )
 }

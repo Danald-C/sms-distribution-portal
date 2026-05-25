@@ -71,6 +71,10 @@ services:
       DB_PORT: 5432
       SMS_PROVIDER_API_URL: https://sms.arkesel.com/api/v2/sms/send
       SMS_PROVIDER_API_KEY: OkFLYmVtaUI4MmVJM09kejI=
+      JWT_ACCESS_SECRET: '8b3bd619651ff1c8f1c48af4a2bcb544776e7c86eccfcd201a2eac42e8cc9b4cd1ca17373c747dec4e6248d7c99df46587afc7de8da8cc7c015b6e8158c8515c'
+      JWT_REFRESH_SECRET: 'f74d4c4ebadb4b53697c66d536af44640d66421224d23a2bd42ea16ab614afa9b514266e4f042bcc8e06de38c75cf0fe8bd91eca6b1e403dab9beea1877eb532'
+      # JWT_SECRET_EXPIRES: 15m
+      JWT_SECRET_EXPIRES: 3d
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
@@ -100,11 +104,18 @@ services:
     image: danald/frontend:latest
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
     container_name: dc_sms_portal_frontend_app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    # command: npm run dev -- --host 0.0.0.0
     restart: always
     ports:
-      - "3000:80"
+      # - "3000:80"
+      - "3000:5173"
     depends_on:
       - backend
 

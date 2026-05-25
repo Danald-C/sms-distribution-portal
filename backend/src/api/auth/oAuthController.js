@@ -1,7 +1,10 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('./firebase-service-account.json'); // download from Firebase console
+// const serviceAccount = require('./firebase-service-account.json'); // download from Firebase console
 
-admin.initializeApp({
+const { OAuth2Client } = require('google-auth-library')
+
+
+/* admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
@@ -27,4 +30,39 @@ router.post('/firebase-login', async (req, res) => {
     console.error('Firebase verify failed', err);
     res.status(401).json({ error: 'Invalid Firebase token' });
   }
-});
+}); */
+
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
+
+async function googleOAuth(req, res) {
+
+  const { credential } = req.body
+
+  try {
+    const ticket = await client.verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID })
+    const payload = ticket.getPayload()
+
+    
+    const userData = {
+      google_id: payload.sub,
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture,
+    }
+
+    // let returnData = res.json({ success: true, user: userData })
+    let returnData = { success: true, user: userData };
+    
+    // Save/find user in DB
+    // console.log(returnData)
+
+    // res.json(returnData)
+    return returnData
+
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid Google token' })
+  }
+}
+
+module.exports = googleOAuth

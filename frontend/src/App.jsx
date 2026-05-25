@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import AuthProvider, { useAuth, ProtectedRoute } from './Contexts/auth.jsx';
-import Dashboard from './components/Dashboard/file.jsx';
-import GetContacts from './components/GetContacts/file.jsx';
+import Dashboard from './components/Dashboard/d-file.jsx';
+import GetContacts from './components/GetContacts/gc-file.jsx';
 // import GoogleLoginButton from './components/Auth/GoogleLoginButton.jsx';
 // import SmsPortalDemo from './pages/composeSMS.jsx';
 // import LetsFindOut from  './pages/letsfindout.jsx';

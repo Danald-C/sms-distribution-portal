@@ -10,27 +10,25 @@ const crypto = require('crypto')
 const { v4: uuidv4 } = require('uuid');
 
 const authMiddleware = require('../middleware/authMiddleware');
+const oAuth = require('../api/auth/oAuthController')
 
 const { redis, REUSE_WINDOW_SEC } = require('../lib/redisClient');
 // const { sendReuseAlert } = require('../lib/email');
 const tokenStore = require('../lib/tokenStore');
 
+const secret = process.env.JWT_ACCESS_SECRET, duration = process.env.JWT_SECRET_EXPIRES || '15m';
+
 // EMAIL PASSWORD
 
 function signAccessToken(user) {
-  const payload = { sub: user.id, email: user.email, name: user.name || null }
-  return jwt.sign(payload, APP_JWT_SECRET || 'dev-secret', { expiresIn: APP_JWT_EXPIRES })
+  // const payload = { sub: user.id, email: user.email, name: user.name || null }
+  return jwt.sign(user, secret, { expiresIn: duration })
 }
 
 
-function generateRefreshToken() {
+/* function generateRefreshToken() {
   return crypto.randomBytes(48).toString('hex')
-}
-
-function signAccessToken(user) {
-  const payload = { sub: user.id, email: user.email, name: user.name || null }
-  return jwt.sign(payload, APP_JWT_SECRET || 'dev-secret', { expiresIn: APP_JWT_EXPIRES })
-}
+} */
 
 /* function setRefreshCookie(res, tokenPlain) {
   const days = Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30
@@ -86,8 +84,31 @@ async function revokeRefreshTokenById(id) {
   await dbQuery(`UPDATE refresh_tokens SET revoked = true, revoked_at = now() WHERE id = $1`, [id])
 }
 
-router.get('/protected', authMiddleware, (req,res)=> {
+/* router.get('/protected', authMiddleware, (req, res)=> {
   res.json({ message: 'ok', user: req.user })
+}) */
+
+router.post('/googleoauth', async (req, res)=> {
+  try{
+    let oAuth_res = await oAuth(req, res), user = oAuth_res.user;
+    let jwtToken = signAccessToken(user)
+    let returnedData = {success: oAuth_res.success, token: jwtToken, user };
+    console.log(returnedData)
+    // res.json({ oAuth_res })
+    res.json(returnedData)
+  }catch(error){
+    console.log('oAuth_err', error)
+    res.json( {error} )
+  }
+  /* {
+    "success": true,
+    "user": {
+      "google_id": "101119012495069634051",
+      "email": "kwadjodanq@gmail.com",
+      "name": "Kwadjo Danq",
+      "picture": "https://lh3.googleusercontent.com/a/ACg8ocI3jePZXbaQJn_ggN__4NqriToXnJkapwDMkZ1oONVCJRaKzNfd=s96-c"
+    }
+  } */
 })
 
 // Register
@@ -156,11 +177,7 @@ router.post("/refresh", async (req, res) => {
     });
 
     // 3. Generate a new access token
-    const newAccessToken = jwt.sign(
-      { userId: tokenRecord.user_id },
-      process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: "15m" }
-    );
+    const newAccessToken = jwt.sign({ userId: tokenRecord.user_id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
 
     res.json({
       accessToken: newAccessToken,
@@ -244,7 +261,7 @@ router.post('/refresh', express.json(), async (req, res) => {
   }
 }) */
 /* -------- refresh with reuse detection -------- */
-router.post('/refresh', express.json(), async (req, res) => {
+/* router.post('/refresh', express.json(), async (req, res) => {
   try {
     const cookie = req.cookies && req.cookies[REFRESH_COOKIE_NAME];
     const bodyToken = req.body && req.body.refreshToken;
@@ -351,6 +368,11 @@ router.post('/refresh', express.json(), async (req, res) => {
     console.error('refresh error', err);
     res.status(500).json({ error: 'Server error' });
   }
+}); */
+
+router.get('/refresh', verifyJWT, async (req, res) => {
+  console.log(req.user)
+  res.json(req.user);
 });
 
 // Login
@@ -395,6 +417,26 @@ router.post('/login', express.json(), async (req, res) => {
     res.status(500).json({ error: 'Server error' })
   }
 });
+
+function verifyJWT(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ message: "No token", });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, secret);
+
+        req.user = decoded;
+
+        next();
+    } catch {
+        return res.status(401).json({ message: "Invalid token", });
+    }
+}
 
 // Logout
 /* router.post('/logout', async (req, res) => {
