@@ -9,20 +9,19 @@ const { Pool } = require('pg')
 const crypto = require('crypto')
 const { v4: uuidv4 } = require('uuid');
 
-const authMiddleware = require('../middleware/authMiddleware');
+const Middlewares = require('../middleware/authMiddleware');
 const oAuth = require('../api/auth/oAuthController')
+const { preSMS_Send } = require('./sms')
 
 const { redis, REUSE_WINDOW_SEC } = require('../lib/redisClient');
 // const { sendReuseAlert } = require('../lib/email');
 const tokenStore = require('../lib/tokenStore');
 
-const secret = process.env.JWT_ACCESS_SECRET, duration = process.env.JWT_SECRET_EXPIRES || '15m';
-
 // EMAIL PASSWORD
 
 function signAccessToken(user) {
   // const payload = { sub: user.id, email: user.email, name: user.name || null }
-  return jwt.sign(user, secret, { expiresIn: duration })
+  return jwt.sign(user, Middlewares.secret, { expiresIn: duration })
 }
 
 
@@ -132,6 +131,42 @@ router.post('/verify-email', async (req, res) => {
   await db.pool.query('UPDATE users SET email_verified=true WHERE id=$1', [t.rows[0].user_id]);
   await db.pool.query('DELETE FROM email_tokens WHERE token=$1', [token]);
   res.json({ ok: true });
+});
+
+// Verify Number
+router.post('/verify-number', async (req, res) => {
+  try{
+    const authHeader = req.headers.authorization;
+    let verified = Middlewares.getVerified(authHeader);
+
+    // let newUser = await db.functions.dbCreateUser({ name: verified.name, email: verified.email, google_id: verified.google_id, profile_picture: verified.picture, phone_number: req.body.number })
+  // "670f06fb-670a-45b6-bf49-f5895046794a"
+  let newUser = await db.functions.dbGetUserByEmail("users", "432c5374-b713-42a0-9e30-978e1d0a7d37");
+  // console.log(newUser)
+    // console.log(await db.functions.removeUser("92f7a9d8-b333-4a39-9a34-c8a2e099f85a"))
+
+    if(newUser){
+      let userId = newUser.id;
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      let expiresAt = new Date(Date.now() + 5*60*1000) // 5 minutes from now
+      // Date.now() + 5 * 60 * 1000
+
+      let otpResult = await db.functions.createRow('phone_otp', { user_id: userId, otp: otp, expires_at: expiresAt })
+
+      await preSMS_Send({ sender: "DC Soft", to: [req.body.number], message: `Your OTP is ${otp}. It expires in 5 minutes.` })
+// {
+//     "sender": "DC Soft",
+//     "to": ["0558244996", "0502653700", "0249246167"],
+//     "message": "We're about to Soar as High as the Eagle. This is a message from DC Soft"
+// }
+    // const {load, contacts} = {"load":true,"contacts":[["Danald","0502653700",""],["Helena","0244246167",""],["David","0558244996",""]]};
+
+    }
+
+    res.json({ ok: true, verified, body: req.body });
+  }catch(err){
+    console.error('verify-number error', err)
+  }
 });
 
 // Refresh
@@ -370,7 +405,7 @@ router.post('/refresh', express.json(), async (req, res) => {
   }
 }); */
 
-router.get('/refresh', verifyJWT, async (req, res) => {
+router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
   console.log(req.user)
   res.json(req.user);
 });
@@ -417,26 +452,6 @@ router.post('/login', express.json(), async (req, res) => {
     res.status(500).json({ error: 'Server error' })
   }
 });
-
-function verifyJWT(req, res, next) {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-        return res.status(401).json({ message: "No token", });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    try {
-        const decoded = jwt.verify(token, secret);
-
-        req.user = decoded;
-
-        next();
-    } catch {
-        return res.status(401).json({ message: "Invalid token", });
-    }
-}
 
 // Logout
 /* router.post('/logout', async (req, res) => {

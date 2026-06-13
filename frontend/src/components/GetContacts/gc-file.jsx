@@ -17,41 +17,17 @@ export default function GetContacts(){
   const [load, setLoad] = useState(false)
   const [alerts, setAlerts] = useState([])
   // const [phone, setPhone] = useState("");
-  let allAlerts = []
-  const checkNumber = {noPlus: function(){ return number.split("+")[1] }, lastNine: function(){ return this.noPlus().slice(-9) }, countryCode: function(){ return this.noPlus().length - this.lastNine().length }}
   // const units = Math.ceil(message.length/160)||0
-  
-  function validateNumber(number){
-    // console.log(number)
-    if(!number){
-      allAlerts.push({from: 0, type: 0, message: "Enter a number"})
-      // setAlerts(allAlerts)
-      // return false
-    }else{
-      /* const noPlus = number.split("+")[1];
-      var lastNine = noPlus.slice(-9);
-      var countryCode = noPlus.length - lastNine.length; */
-      if(checkNumber.noPlus().length <= 9){
-        allAlerts.push({from: 1, type: 0, message: "Your provided number is not complete."})
-        // setAlerts(allAlerts)
-        // return false
-      }else{
-        if(checkNumber.countryCode() >= 4){
-          allAlerts.push({from: 2, type: 0, message: "Your provided number exceeds the required length."})
-          // setAlerts(allAlerts)
-          // return false
-        }
-      }
-    }
-    // return true;
-  }
+
+  // const checkNumber = {noPlus: function(){ return number.split("+")[1] }, lastNine: function(){ return this.noPlus().slice(-9) }, countryCode: function(){ return this.noPlus().length - this.lastNine().length }}
+  let allAlerts = []
   
   function submit(e){
     e.preventDefault()
     // const form = new FormData()
     // form.append('Number', number)
     // clearAlerts(alerts, number);
-    validateNumber(number);
+    allAlerts = validateNumber(number);
     // if(!isValidPhoneNumber(number)){
     if(allAlerts.length > 0){
       setAlerts(allAlerts)

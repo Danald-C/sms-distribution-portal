@@ -5,14 +5,24 @@ import GoogleLoginArea from "../Auth/GoogleLoginButton.jsx";
 
 
 export default function SignupPage() {
-  const { signup } = useAuth();
+  // const { signup } = useAuth();
+  const { values: { functions, setStates } } = useAuth();
   const [payload, setPayload] = useState({ name: '', email: '', password: '' });
-  console.log('register payload');
-
+  
+    useEffect(() => {
+      // Try to refresh token on app load
+      function refresh() {
+        if(!functions.temporaryStore({name: 'gateway', value: {}}, 0)) navigate("/");
+      }
+      refresh();
+    }, []);
+  
   async function submit(e) {
     e.preventDefault();
+
     try {
-      await signup(payload);
+      console.log(setStates.GW.gateway);
+      // await functions.signup(payload);
       alert('Registered — please verify your email');
     } catch (err) {
       alert(err.message || 'Register failed');
@@ -45,7 +55,7 @@ export default function SignupPage() {
         <h2 className="text-2xl font-semibold mb-6">Sign up here.</h2>
         <input className="w-full p-2 mb-2 border rounded" placeholder="Full name" value={payload.name} onChange={(e) => setPayload({ ...payload, name: e.target.value })} />
         <input className="w-full p-2 mb-2 border rounded" placeholder="Email" value={payload.email} onChange={(e) => setPayload({ ...payload, email: e.target.value })} />
-        <input type="password" className="w-full p-2 mb-4 border rounded" placeholder="Password" value={payload.password} onChange={(e) => setPayload({ ...payload, password: e.target.value })} />
+        {/* <input type="password" className="w-full p-2 mb-4 border rounded" placeholder="Password" value={payload.password} onChange={(e) => setPayload({ ...payload, password: e.target.value })} /> */}
         <button className="px-4 py-2 bg-indigo-600 text-white rounded">Create account</button>
       </form>
       <div className="">Have an account already? <Link to='/'>Login</Link></div>

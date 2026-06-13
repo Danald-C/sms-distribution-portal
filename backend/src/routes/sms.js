@@ -85,11 +85,46 @@ axios(config)
 //*******  */
 
 router.post('/send', async (req, res) => {
-  const { sender, to, message } = req.body;
+  try{
+    /* const { sender, to, message } = req.body;
+    await enqueueSms({ sender, to, message });
+    await processWorker(); */ // start the worker to process SMS jobs
+
+    preSMS_Send(req.body);
+    
+    res.json({ status: 'queued' });
+  }catch(err){
+    console.error('Error in /send route:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+async function preSMS_Send(body) {
+  const { sender, to, message } = body;
   await enqueueSms({ sender, to, message });
   await processWorker(); // start the worker to process SMS jobs
-  res.json({ status: 'queued' });
-});
+}
+
+/* async function sendPostRequest() {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Success:', data);
+  } catch (error) {
+    console.error('Error:', error.message);
+  }
+} */
 
 /* router.post('/send', upload.single('recipients'), async (req,res)=>{
   // Validate request, compute units, enqueue job to send SMS
@@ -127,4 +162,4 @@ router.post('/send', async (req, res) => {
   }
 }); */
 
-module.exports = { router }
+module.exports = { router, preSMS_Send }

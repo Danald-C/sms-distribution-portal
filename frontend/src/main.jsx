@@ -9,6 +9,7 @@ import AuthProvider, { ProtectedRoute } from './Contexts/auth.jsx';
 import LoginPage from './components/LoginPage/lp-file.jsx'
 import ProfilePage from './components/ProfilePage/pp-file.jsx'
 import SignupPage from './components/SignupPage/sp-file.jsx'
+import VerifyContactPage from './components/Verification/Verify-Contact.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -16,10 +17,9 @@ createRoot(document.getElementById('root')).render(
       <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
       {/* <App /> */}
       <AuthProvider>
-        {/* <ProtectedRoute /> */}
         <Routes>
           <Route exact path="/" element={<LoginPage />} />
-          {/* <Route path="/profile" element={<ProfilePage />} /> */}
+          <Route exact path="/verify-contact" element={<VerifyContactPage />} />
           <Route path="/profile" element={
             <ProtectedRoute>
               <ProfilePage />

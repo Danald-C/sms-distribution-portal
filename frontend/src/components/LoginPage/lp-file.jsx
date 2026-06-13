@@ -18,7 +18,8 @@ import GoogleLoginArea from "../Auth/GoogleLoginButton.jsx";
 
 
 export default function LoginPage() {
-  const { localLogin } = useAuth();
+  // const { localLogin } = useAuth();
+  const { values: { functions, setStates } } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +28,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await localLogin(email, password);
+      await functions.processLL(email, password);
       // redirect to dashboard
     } catch (err) {
       alert(err.message || 'Login failed');
@@ -45,7 +46,8 @@ export default function LoginPage() {
         <input type="password" className="w-full p-2 mb-4 border rounded" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
         <button disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded">{loading ? 'Signing in…' : 'Sign in'}</button>
       </form>
-      <div className="">Or <Link to='/signup'>Sign up</Link> if you're new.</div>
+      {/* <div className="">Or <Link to='/signup' onClick={() => setStates.GW.setGateway({type: 1, from: 'local'})}>Sign up</Link> if you're new.</div> */}
+      <div className="">Or <Link to='/signup' onClick={() => functions.temporaryStore({name: 'gateway', value: {type: 1, from: 'local'}}, 1)}>Sign up</Link> if you're new.</div>
       <GoogleLoginArea />
     </>
   )

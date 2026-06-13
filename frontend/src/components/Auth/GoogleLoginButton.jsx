@@ -72,7 +72,8 @@ export function FirebaseAuthWatcher({ onUserChanged }) {
 
 
 function GoogleLoginButton() {
-  const { googleLogin } = useAuth();
+  // const { googleLogin } = useAuth();
+  const { values: { functions } } = useAuth();
   const navigate = useNavigate();
 
   const handleSuccess = async (credentialResponse) => {
@@ -88,15 +89,15 @@ function GoogleLoginButton() {
           body: JSON.stringify({
             credential: credentialResponse.credential,
           }),
-
         })
       const data = await response.json()
       
       // console.log(JSON.parse(localStorage.getItem('user')))
-      // console.log(data)
+      // console.log(functions)
       if (data.success) {
-        googleLogin(data);
-        navigate("/profile");
+        functions.processGL(data);
+        // navigate("/profile");
+        navigate(functions.temporaryStore({name: 'gateway', value: {}}, 0).type === 1 ? "/verify-contact" : "/profile");
       }else{
         navigate("/");
       }
@@ -113,11 +114,7 @@ function GoogleLoginButton() {
 }
 
 export default function GoogleLoginArea(){
-  const { loading } = useAuth();
-  // console.log(window.location.origin);
   // console.log(import.meta.env.VITE_GOOGLE_CLIENT_ID);
-  
-  // if (loading) return <div>Loading...</div>;
 
   return(
     <>

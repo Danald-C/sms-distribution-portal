@@ -4,6 +4,8 @@ const { Pool } = require('pg')
 const { APP_JWT_SECRET, DATABASE_URL } = process.env
 const pool = new Pool({ connectionString: DATABASE_URL })
 
+const secret = process.env.JWT_ACCESS_SECRET, duration = process.env.JWT_SECRET_EXPIRES || '15m';
+
 
 // const token = jwt.sign({ userId: user.id, }, process.env.JWT_SECRET, { expiresIn: '7d', })
 
@@ -38,4 +40,31 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-module.exports = authMiddleware
+function getVerified(authHeader) {
+  // console.log(authHeader)
+  const token = authHeader.split(" ")[1];
+  return jwt.verify(token, secret);
+}
+
+function verifyJWTMiddleware(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ message: "No token", });
+    }
+
+    try {
+      // const token = authHeader.split(" ")[1];
+  
+      // const decoded = jwt.verify(token, secret);
+
+        // req.user = decoded;
+        req.user = getVerified(authHeader);;
+
+        next();
+    } catch {
+        return res.status(401).json({ message: "Invalid token", });
+    }
+}
+
+module.exports = {authMiddleware, verifyJWTMiddleware, getVerified, secret}

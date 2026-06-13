@@ -71,21 +71,37 @@ SET revoked_at = NOW()
 WHERE revoked = TRUE AND revoked_at IS NULL; */
 
 /* Get user by email */
-async function dbGetUserByEmail(email) {
-  if (!email) return null
-  const res = await dbQuery('SELECT * FROM users WHERE email = $1 LIMIT 1', [email])
-  return res.rows[0] || null
+// async function dbGetUserByEmail(email) {
+async function dbGetUserByEmail(table, id) {
+  // if (!email) return null
+  // const res = await dbQuery('SELECT * FROM users WHERE email = $1 LIMIT 1', [email])
+  const res = await dbQuery(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id])
+  // const res = await dbQuery('SELECT * FROM users', [email])
+  // return res.rows[0] || null
+  return res[0] || null
 }
 
 /* Create user stub */
-async function dbCreateUser({ email, name, provider, provider_id, meta = {} }) {
-  const res = await dbQuery(
-    `INSERT INTO users (email, name, provider, provider_id, meta, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,now(),now())
+// async function dbCreateUser({ name, email, provider, provider_id, meta = {} }) {
+async function dbCreateUser({ name, email, google_id, profile_picture, phone_number }) {
+  let result = await dbQuery(
+    // `INSERT INTO users (email, name, provider, provider_id, meta, created_at, updated_at)
+    `INSERT INTO users (full_name, email, google_id, profile_picture, phone_number, created_at)
+     VALUES ($1,$2,$3,$4,$5,now())
      RETURNING *`,
-    [email, name || null, provider || null, provider_id || null, meta]
-  )
-  return res.rows[0]
+    [name || null, email, google_id || null, profile_picture || null, phone_number]
+  );
+
+  return result[0];
+}
+
+async function createRow(table, data) {
+  const columns = Object.keys(data).join(', ');
+  const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
+  const values = Object.values(data);
+  const result = await dbQuery(`INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`, values);
+  // return res.rows[0];
+  return result[0];
 }
 
 /* Update user stub */
@@ -96,6 +112,13 @@ async function dbUpdateUser(id, { name, provider, provider_id, meta = {} }) {
   )
   return res.rows[0]
 }
+
+async function removeUser(id) {
+  // console.log('Pruning revoked tokens older than 90 days...');
+  // await pool.query("DELETE FROM refresh_tokens WHERE revoked = true AND revoked_at < now() - interval '90 days'");
+  // await pool.query("DELETE FROM users WHERE id = '"+id+"'");
+  await pool.query(`DELETE FROM users WHERE id = '${id}'`);
+  // console.log('Done pruning.');
 
 /* Store refresh token (hash it first). Returns the raw refresh token (to send as cookie) */
 async function dbStoreRefreshToken({ user_id, refreshTokenPlain, userAgent = null, ip = null, expiresAt = null }) {
@@ -124,14 +147,9 @@ async function dbValidateRefreshToken(user_id, refreshTokenPlain) {
   }
   return null
 }
-
-async function run() {
-  // console.log('Pruning revoked tokens older than 90 days...');
-  await pool.query("DELETE FROM refresh_tokens WHERE revoked = true AND revoked_at < now() - interval '90 days'");
-  // console.log('Done pruning.');
-  await pool.end();
+  // await pool.end();
 }
-run().catch(e=>{ console.error(e); process.exit(1); });
+// run().catch(e=>{ console.error(e); process.exit(1); });
 
 async function execute(query){
   try{
@@ -140,6 +158,11 @@ async function execute(query){
     //
   }
 }
+
+// *** DATABASE ARCHETECTURE
+// Phone Numbers Table: id, user_id, phone_number, country_code, country_name
+// Group Table: id, user_id, group_name, group_description
+// Group & Numbers Association Table: group_id, phone_number_id
 
 /* CREATE TABLE users (
   id serial PRIMARY KEY,
@@ -270,4 +293,4 @@ CREATE TABLE contacts (
     created_at TIMESTAMP DEFAULT NOW()
 ); */
 
-module.exports = {envDefs, pool, execute, dbObj}
+module.exports = {envDefs, pool, execute, dbObj, functions: { dbCreateUser, dbGetUserByEmail, removeUser, createRow }}
