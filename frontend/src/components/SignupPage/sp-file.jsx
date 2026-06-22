@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from '../../Contexts/auth.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 import GoogleLoginArea from "../Auth/GoogleLoginButton.jsx";

@@ -1,8 +1,11 @@
 import React, { useRef, useState, useEffect, useReducer } from 'react';
+import { useAuth } from '../../Contexts/auth.jsx';
 
 export default function ComposeSMS({props}){
-    // const {load, contacts} = props;
-    const {load, contacts} = {"load":true,"contacts":[["Danald","0502653700",""],["Helena","0244246167",""],["David","0558244996",""]]};
+// export default function ComposeSMS(){
+    // const { loading, contacts } = props;
+    const { loading } = props;
+    const { values: { data, functions, setStates } } = useAuth();
     const [sender, senderID] = useState('DC Group');
     // const [message, setMessage] = useState('');
     const [message, setMessage] = useState('Hi, I just wanted to check up on you!');
@@ -21,35 +24,13 @@ export default function ComposeSMS({props}){
             // processSlider(sliderVal.current, 1, slider);
         }
     }) */
-    // const displayElements = () => {
-    const displayElements = type => {
-        /* return contacts.map((contact, index) => (
-          <span key={index} className="mr-2">{contact[0]}: {contact[1]} {contact[2]}</span>
-        )); */
-        let elements = '';
-        
-        if(type == 0){
-            elements = contacts.map((contact, index) => (
-                <span key={index} className="mr-2">{contact[0]}: {contact[1]} {contact[2]}</span>
-            ));
-        }
-        
-        if(type == 1){
-            elements = payload.map((eachMess, index) => (
-                // <textarea key={index} defaultValue={eachMess.message} />
-                <textarea key={index} value={eachMess.message} />
-            ))
-        }
-
-        return elements;
-    }
 
         // console.log(JSON.stringify(props));
     
     const handleSendSMS = async (e) => {
         e.preventDefault()
         
-        const getNumbers = contacts.map(contact => contact[1]);
+        const getNumbers = data.contacts.map(contact => contact[1]);
         console.log(JSON.stringify({sender, message, "to": getNumbers}));
 
         const endpointUrl = 'http://localhost:4000/api/sms/send'; // Replace with your backend URL
@@ -128,7 +109,7 @@ export default function ComposeSMS({props}){
             // if(slider[2]){
             if(newSlider[2]){
                 let newMessages = [];
-                contacts.map((contact, index) => {
+                data.contacts.map((contact, index) => {
                     let splitMsg = message.split(" ");
                     if(contact[0] != ''){
                         splitMsg.splice(target, 0, contact[0])
@@ -138,7 +119,7 @@ export default function ComposeSMS({props}){
                 });
                 // console.log(sliderVal);
                 
-                contacts.map((contact, index) => {
+                data.contacts.map((contact, index) => {
                     let thisMessage = message;
                     newMessages.map((msg) => {
                         if(index == msg[1])
@@ -152,7 +133,7 @@ export default function ComposeSMS({props}){
                     });
                 });
             }else{
-                const getNumbers = contacts.map(contact => contact[1]);
+                const getNumbers = data.contacts.map(contact => contact[1]);
                 newPayload.push({
                     "message": message,
                     "to": getNumbers
@@ -171,13 +152,10 @@ export default function ComposeSMS({props}){
 
     return(
         <>
-            <div className="flex items-center gap-3">
-                {load && <span className="text-green-600">Contact Added! { displayElements(0) }</span>}
-                {load && <input type="button" value="Save Contacts" className="px-4 py-2 bg-green-600 text-white rounded cursor-pointer" />}
-            </div>
-
+            {console.log("Where are you watching? ", loading)}
             {
-                (load) &&
+                // (load) &&
+                (loading) &&
             
                 <>
                     <form className="bg-white rounded-xl p-6 shadow" onSubmit={handleSendSMS}>
@@ -205,7 +183,7 @@ export default function ComposeSMS({props}){
                                     slider[2] && 
                                     
                                     // console.log(payload)
-                                   displayElements(1)
+                                   functions.displayElements(1, [], payload)
                                 }
                             </>
                             )

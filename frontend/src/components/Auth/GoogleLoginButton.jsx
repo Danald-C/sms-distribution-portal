@@ -78,7 +78,7 @@ function GoogleLoginButton() {
 
   const handleSuccess = async (credentialResponse) => {
 
-    console.log(JSON.stringify(credentialResponse))
+    console.log(JSON.stringify(credentialResponse.credential))
     
     try {
       const response = await fetch('http://localhost:4000/api/auth/googleoauth', {
@@ -90,20 +90,39 @@ function GoogleLoginButton() {
             credential: credentialResponse.credential,
           }),
         })
-      const data = await response.json()
-      
-      // console.log(JSON.parse(localStorage.getItem('user')))
-      // console.log(functions)
+        const data = await response.json()
+        
+        console.log(data)
       if (data.success) {
         functions.processGL(data);
+        // console.log(functions.temporaryStore({name: 'gateway', value: {}}, 0))
+        // let getGateway = functions.temporaryStore({name: 'gateway', value: {}}, 0);
         // navigate("/profile");
-        navigate(functions.temporaryStore({name: 'gateway', value: {}}, 0).type === 1 ? "/verify-contact" : "/profile");
+        // navigate(getGateway && getGateway.type === 1 || data.newUser ? "/verify-contact" : "/profile");
+        navigate(data.newUser ? "/verify-contact" : "/profile");
       }else{
         navigate("/");
       }
     } catch (error) {
       console.error("Google login failed:", error);
     }
+    
+    /* try {
+        const data = fetchFromBackend({path: 'api/auth/googleoauth', data: { credential: credentialResponse.credential,}});
+        
+        // console.log(functions)
+      if (data.success) {
+        functions.processGL(data);
+        // console.log(functions.temporaryStore({name: 'gateway', value: {}}, 0))
+        let getGateway = functions.temporaryStore({name: 'gateway', value: {}}, 0);
+        // navigate("/profile");
+        navigate(getGateway && getGateway.type === 1 ? "/verify-contact" : "/profile");
+      }else{
+        navigate("/");
+      }
+    } catch (error) {
+      console.error("Google login failed:", error);
+    } */
   }
 
   const handleError = () => {

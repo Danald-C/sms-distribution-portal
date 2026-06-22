@@ -47,7 +47,8 @@ export default function LoginPage() {
         <button disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded">{loading ? 'Signing in…' : 'Sign in'}</button>
       </form>
       {/* <div className="">Or <Link to='/signup' onClick={() => setStates.GW.setGateway({type: 1, from: 'local'})}>Sign up</Link> if you're new.</div> */}
-      <div className="">Or <Link to='/signup' onClick={() => functions.temporaryStore({name: 'gateway', value: {type: 1, from: 'local'}}, 1)}>Sign up</Link> if you're new.</div>
+      {/* <div className="">Or <Link to='/signup' onClick={() => functions.temporaryStore({name: 'gateway', value: {type: 1, from: 'local'}}, 1)}>Sign up</Link> if you're new.</div> */}
+      <div className="">Or <Link to='/signup'>Sign up</Link> if you're new.</div>
       <GoogleLoginArea />
     </>
   )

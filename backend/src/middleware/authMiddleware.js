@@ -67,4 +67,4 @@ function verifyJWTMiddleware(req, res, next) {
     }
 }
 
-module.exports = {authMiddleware, verifyJWTMiddleware, getVerified, secret}
+module.exports = {authMiddleware, verifyJWTMiddleware, getVerified, environmentV: {secret, duration}}

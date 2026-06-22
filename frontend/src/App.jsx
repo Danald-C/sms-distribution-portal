@@ -10,6 +10,12 @@ import reactLogo from './assets/react.svg'
 // import viteLogo from '/vite.svg'
 import './App.css'
 
+import { Routes, Route } from 'react-router-dom'
+import LoginPage from './components/LoginPage/lp-file.jsx'
+import ProfilePage from './components/ProfilePage/pp-file.jsx'
+import SignupPage from './components/SignupPage/sp-file.jsx'
+import VerifyContactPage from './components/Verification/Verify-Contact.jsx'
+
 // http://localhost:3000
 
 function App() {
@@ -40,6 +46,16 @@ function App() {
 
       <AuthProvider>
         {/* <ProtectedRoute> */}
+          <Routes>
+            <Route exact path="/" element={<LoginPage />} />
+            <Route exact path="/verify-contact" element={<VerifyContactPage />} />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/signup" element={<SignupPage />} />
+          </Routes>
           <div className="min-h-screen bg-gray-50 p-6">
             <div className="max-w-6xl mx-auto">
               <header className="mb-6 flex justify-between items-center">

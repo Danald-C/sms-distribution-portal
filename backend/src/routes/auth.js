@@ -21,7 +21,7 @@ const tokenStore = require('../lib/tokenStore');
 
 function signAccessToken(user) {
   // const payload = { sub: user.id, email: user.email, name: user.name || null }
-  return jwt.sign(user, Middlewares.secret, { expiresIn: duration })
+  return jwt.sign(user, Middlewares.environmentV.secret, { expiresIn: Middlewares.environmentV.duration })
 }
 
 
@@ -89,9 +89,22 @@ async function revokeRefreshTokenById(id) {
 
 router.post('/googleoauth', async (req, res)=> {
   try{
-    let oAuth_res = await oAuth(req, res), user = oAuth_res.user;
-    let jwtToken = signAccessToken(user)
-    let returnedData = {success: oAuth_res.success, token: jwtToken, user };
+    let oAuth_res = await oAuth(req, res), newUser = false; // Process Google Credential
+    
+    console.log(oAuth_res)
+    let userEmail = oAuth_res.user.email;
+    let thisUser = await db.functions.tableGetRows("users", { email: userEmail })[0];
+    if(!thisUser){
+      thisUser = await db.functions.tableCreateRow("users", { name: oAuth_res.user.name, email: userEmail, google_id: oAuth_res.user.google_id, profile_picture: oAuth_res.user.picture })
+
+      newUser = true;
+    }else{
+      if(!thisUser.phone_verified) newUser = true;
+    }
+    
+    let user = {user_id: `${thisUser.id}`, ...oAuth_res.user}
+    let jwtToken = signAccessToken({user})
+    let returnedData = {success: oAuth_res.success, token: jwtToken, user, newUser };
     console.log(returnedData)
     // res.json({ oAuth_res })
     res.json(returnedData)
@@ -136,38 +149,171 @@ router.post('/verify-email', async (req, res) => {
 // Verify Number
 router.post('/verify-number', async (req, res) => {
   try{
+    // Verify Token
     const authHeader = req.headers.authorization;
-    let verified = Middlewares.getVerified(authHeader);
+    let verified = Middlewares.getVerified(authHeader), status = {success: false, complete: false};
 
-    // let newUser = await db.functions.dbCreateUser({ name: verified.name, email: verified.email, google_id: verified.google_id, profile_picture: verified.picture, phone_number: req.body.number })
-  // "670f06fb-670a-45b6-bf49-f5895046794a"
-  let newUser = await db.functions.dbGetUserByEmail("users", "432c5374-b713-42a0-9e30-978e1d0a7d37");
-  // console.log(newUser)
-    // console.log(await db.functions.removeUser("92f7a9d8-b333-4a39-9a34-c8a2e099f85a"))
-
-    if(newUser){
-      let userId = newUser.id;
+    // console.log(await db.functions.removeUser("users", { id: "6d6eafe9-1778-46f0-8a77-9c99309a99f7" }))
+    if(verified){
+      // Process OTP
+      // if(req.body.process === 'send-otp'){
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      let expiresAt = new Date(Date.now() + 5*60*1000) // 5 minutes from now
-      // Date.now() + 5 * 60 * 1000
+      
+      let thisUser = await db.functions.tableGetRows("users", { id: verified.user.user_id })[0];
+      if(thisUser){
+        if(thisUser.phone_verified){
+          status = {success: true, complete: true};
+        }else{
+          let expiresAt = new Date(Date.now() + 10*60*1000) // 10 minutes from now
+          // Date.now() + 5 * 60 * 1000
 
-      let otpResult = await db.functions.createRow('phone_otp', { user_id: userId, otp: otp, expires_at: expiresAt })
+          if(!thisUser.phone_number){
+            thisUser = await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_number: req.body.number });
+          }
+          
+          // console.log(`Watch here: ${success}`, verified.user, `THIS USER: `, thisUser, req.body)
+          let thisOtp = await db.functions.tableGetRows("phone_otp", { user_id: `${thisUser.id}` })[0];
+          // console.log(`Watch here: ${status.success}`, `Otp: ${thisOtp.otp} == ${req.body.otp}`, `Date: ${new Date(thisOtp.expires_at)} and ${new Date()}`, verified.user)
+          if(!thisOtp){
+            let otpResult = await db.functions.tablecreateRow('phone_otp', { user_id: thisUser.id, otp, expires_at: expiresAt });
 
-      await preSMS_Send({ sender: "DC Soft", to: [req.body.number], message: `Your OTP is ${otp}. It expires in 5 minutes.` })
-// {
-//     "sender": "DC Soft",
-//     "to": ["0558244996", "0502653700", "0249246167"],
-//     "message": "We're about to Soar as High as the Eagle. This is a message from DC Soft"
-// }
-    // const {load, contacts} = {"load":true,"contacts":[["Danald","0502653700",""],["Helena","0244246167",""],["David","0558244996",""]]};
+            await preSMS_Send({ sender: "DC Soft", to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
 
+            status.success = true;
+          }else{ // Otp exists already OR receiving it
+            /* if(thisOtp.otp === req.body.otp && new Date(thisOtp.expires_at) > new Date()){
+            // if(thisOtp && thisOtp.otp === req.body.otp){
+                // console.log(new Date(thisOtp.expires_at), new Date())
+              await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_verified: true });
+              // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: thisOtp.otp, expires_at: expiresAt });
+            }else{
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
+              await preSMS_Send({ sender: "DC Soft", to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
+            } */
+           if(thisOtp.otp === req.body.otp){
+            if(new Date(thisOtp.expires_at) > new Date()){
+              await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_verified: true });
+            
+              status.complete = true;
+            }else{
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
+              await preSMS_Send({ sender: "DC Soft", to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
+            }
+            
+            status.success = true;
+           }else{
+            status.success = false;
+           }
+          }
+        }
+      }
+        // console.log(thisUser)
+      /* }else{
+        //
+      } */
+      /* if(req.body.process === 'send-otp'){
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // let thisUser = await db.functions.tableGetRow("users", {"column": "phone_number", "cell": req.body.number});
+        let thisUser = await db.functions.tableGetRow("users", { phone_number: req.body.number });
+        if(!thisUser){ // The number should not exist
+          let newUser = await db.functions.tableCreateRow({ name: verified.name, email: verified.email, google_id: verified.google_id, profile_picture: verified.picture, phone_number: req.body.number })
+        // let thisUser = await db.functions.tableGetRow("users", { id: "432c5374-b713-42a0-9e30-978e1d0a7d37" });
+        // console.log(newUser)
+
+          if(newUser){
+            let expiresAt = new Date(Date.now() + 10*60*1000) // 10 minutes from now
+            // Date.now() + 5 * 60 * 1000
+
+            let otpResult = await db.functions.tablecreateRow('phone_otp', { user_id: newUser.id, otp, expires_at: expiresAt })
+
+            await preSMS_Send({ sender: "DC Soft", to: [req.body.number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
+            
+            success = true;
+          }
+        }else{
+          // Check whether number is verified = true
+          // If false, resend otp
+          // let thisUser = await db.functions.tableGetRow("users", { phone_number: req.body.number, phone_verified: true });
+
+          if(!thisUser.phone_verified){
+            await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp }); // The first item should always be the dependent column stated in the 'where column = value'
+            await preSMS_Send({ sender: "DC Soft", to: [req.body.number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
+          }
+          
+          success = true;
+        }
+      }else{
+        // Receive & verify OTP
+        // let thisUser = await db.functions.tableGetRow("users", {"column": "phone_number", "cell": req.body.number});
+        let thisUser = await db.functions.tableGetRow("users", { phone_number: req.body.number });
+        // let thisOtp = await db.functions.tableGetRow("phone_otp", {"column": "user_id", "cell": thisUser.id});
+        let thisOtp = await db.functions.tableGetRow("phone_otp", { user_id: thisUser.id });
+        
+        if(thisOtp && thisOtp.otp === req.body.otp && new Date(thisOtp.expires_at) > new Date()){
+        // if(thisOtp && thisOtp.otp === req.body.otp){
+            // console.log(new Date(thisOtp.expires_at), new Date())
+          await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_verified: true });
+          
+          success = true;
+        }
+      } */
+
+        // let someOBJ = {field1: "value1", field2: "value2", field3: "value3"};
+      // console.log(Object.keys(someOBJ).slice(0, 1)[0])
     }
 
-    res.json({ ok: true, verified, body: req.body });
+    res.json({ status });
   }catch(err){
     console.error('verify-number error', err)
+    res.json( {err} )
   }
 });
+
+router.post('/remove-record', async (req, res) => {
+  try{
+    req.body.map(async (each) => {
+      await db.functions.removeUser(each.table, each.clause);
+      // console.log(await db.functions.removeUser("users", { id: "6d6eafe9-1778-46f0-8a77-9c99309a99f7" }))
+    })
+  
+    res.json({ status: "Success" });
+  }catch(error){
+    console.error('Cannot remove record: ', error)
+    res.json( {error} )
+  }
+});
+
+// Save Contacts
+router.post('/save-contacts', async (req, res) => {
+  try{
+    // console.log(req.body)
+    req.body.contacts.map(async (person) => await db.functions.tablecreateRow("phone_numbers", {user_id: req.body.user_id, phone_number: person[1], date_created: new Date(), full_name: person[0], email: person[2] ? person[2] : "" }))
+  
+    res.json({ status: "Success" });
+  }catch(error){
+    res.json( {error: 'Failed to save contacts,'+ error} );
+  }
+});
+
+router.post('/fetch-contacts', async (req, res) => {
+  try{
+    console.log(req.query.user_id);
+    // getPhoneNumbers(req.query.page, req.query.limit, req.query.user_id)
+
+    // res.json({ status: "Success" });
+  }catch(error){
+    res.json( {error: 'Unfortunately, this process failed. '+ error} );
+  }
+});
+
+async function getPhoneNumbers(page=1, limit=10, user_id){
+  let results = await db.functions.tableGetRows("phone_numbers", { user_id }, {orderBy: "id", desc: "DESC", limit, offset: page});
+  // let result = await db.functions.getUsers(page, limit);
+  console.log(results)
+
+  return results;
+}
 
 // Refresh
 /* router.post('/refresh', express.json(), async (req, res) => {
@@ -406,8 +552,10 @@ router.post('/refresh', express.json(), async (req, res) => {
 }); */
 
 router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
-  console.log(req.user)
-  res.json(req.user);
+  // console.log(req.user.user.user_id);
+  let phoneNumbers = await getPhoneNumbers(1, 10, req.user.user.user_id);
+  
+  res.json({user: req.user, phoneNumbers});
 });
 
 // Login

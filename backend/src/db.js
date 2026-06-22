@@ -1,5 +1,6 @@
 const { Pool } = require('pg')
 const admin = require('firebase-admin')
+// const { tryCatch } = require('bullmq')
 
 
 const {
@@ -72,13 +73,54 @@ WHERE revoked = TRUE AND revoked_at IS NULL; */
 
 /* Get user by email */
 // async function dbGetUserByEmail(email) {
-async function dbGetUserByEmail(table, id) {
-  // if (!email) return null
-  // const res = await dbQuery('SELECT * FROM users WHERE email = $1 LIMIT 1', [email])
-  const res = await dbQuery(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id])
-  // const res = await dbQuery('SELECT * FROM users', [email])
-  // return res.rows[0] || null
-  return res[0] || null
+// async function tableGetRow(table, {column, cell}) {
+async function tableGetRows(table, data, extra={orderBy: null, desc: null, limit: null, offset: null}) {
+  let getKeys = Object.keys(data), getValues = Object.values(data);
+  try{
+    // if (!column || !cell) return null
+    if (getKeys.length === 0 || getValues.length === 0) return null
+    // const res = await dbQuery('SELECT * FROM users WHERE email = $1 LIMIT 1', [email])
+    /* let query = `SELECT * FROM ${table} WHERE `;
+    getKeys.map((column, i) => {
+      query += `${column} = $${i+1}`;
+      query += i < getKeys.length-1 ? ` AND ` : ``;
+    }); */
+    let query = `SELECT * FROM ${table}`;
+    if(getKeys.length > 0){
+      query += ` WHERE `;
+      getKeys.map((column, i) => {
+        query += `${column} = $${i+1}`;
+        query += i < getKeys.length-1 ? ` AND ` : ``;
+      });
+    }
+    // query += ` LIMIT 1`;
+    // query += ` ORDER BY id DESC LIMIT $1 OFFSET $2`;
+    query += extra.orderBy ? ` ORDER BY ${extra.orderBy}` : ``;
+    query += extra.desc ? ` ${extra.desc}` : ``;
+
+    if(extra.limit){
+      getValues.push(extra.limit);
+      query +=  ` LIMIT $${getValues.length}`;
+    }
+    if(extra.offset){
+      getValues.push(extra.offset);
+      query += ` OFFSET $${getValues.length}`;
+    }
+    
+    const res = await dbQuery(query, getValues)
+    console.log(data);
+    
+    return res || null
+  }catch(error){
+    // console.error(`Error fetching row from ${table} where ${column} = ${cell}:`, error)
+    let str = `Error fetching row from ${table} where `;
+    getKeys.map((column, i) => {
+      str += `${column} = ${getValues[i]}`;
+      str += i < getKeys.length-1 ? ` and ` : ``;
+    })
+    console.error(`${str}:`, error)
+    return null
+  }
 }
 
 /* Create user stub */
@@ -95,30 +137,77 @@ async function dbCreateUser({ name, email, google_id, profile_picture, phone_num
   return result[0];
 }
 
-async function createRow(table, data) {
-  const columns = Object.keys(data).join(', ');
-  const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
-  const values = Object.values(data);
-  const result = await dbQuery(`INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`, values);
-  // return res.rows[0];
-  return result[0];
+async function tablecreateRow(table, data) {
+  try{
+    const columns = Object.keys(data).join(', ');
+    const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
+    console.log(`INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`)
+    const values = Object.values(data);
+    const result = await dbQuery(`INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`, values);
+
+    return result[0];
+  }catch(error){
+    console.error(`Error creating data:`, error)
+    return null
+  }
 }
 
 /* Update user stub */
 async function dbUpdateUser(id, { name, provider, provider_id, meta = {} }) {
-  const res = await dbQuery(
-    `UPDATE users SET name = COALESCE($2, name), provider = COALESCE($3, provider), provider_id = COALESCE($4, provider_id), meta = meta || $5::jsonb, updated_at = now() WHERE id = $1 RETURNING *`,
-    [id, name, provider, provider_id, meta]
-  )
+  const res = await dbQuery(`UPDATE users SET name = COALESCE($2, name), provider = COALESCE($3, provider), provider_id = COALESCE($4, provider_id), meta = meta || $5::jsonb, updated_at = now() WHERE id = $1 RETURNING *`, [id, name, provider, provider_id, meta])
+  
   return res.rows[0]
 }
+async function tableUpdateRow(table, dataObj) {
+  try{
+    // {field: value, field: value, field: value}
+    let getKeys = Object.keys(dataObj), firstKey = getKeys.slice(0, 1)[0], skipFirstK = getKeys.slice(1, getKeys.length), getValues = Object.values(dataObj), skipFirstV = getValues.slice(1, getValues.length);
+    let updateQuery = `UPDATE ${table} SET `;
 
-async function removeUser(id) {
-  // console.log('Pruning revoked tokens older than 90 days...');
-  // await pool.query("DELETE FROM refresh_tokens WHERE revoked = true AND revoked_at < now() - interval '90 days'");
-  // await pool.query("DELETE FROM users WHERE id = '"+id+"'");
-  await pool.query(`DELETE FROM users WHERE id = '${id}'`);
-  // console.log('Done pruning.');
+    if (getKeys.length < 2 || getValues.length < 2) return null;
+    
+    // console.log(skipFirstV)
+    skipFirstK.forEach((key, i) => {
+      updateQuery += `${key} = COALESCE($${i+2}, ${key})`
+      /* if(i < skipFirstK.length-1){
+        updateQuery += ', '
+      }else{
+        updateQuery += ' '
+      } */
+      updateQuery += (i < skipFirstK.length-1) ? ', ' : ' ';
+    });
+    updateQuery += `WHERE ${firstKey} = $1 RETURNING *`;
+
+    const res = await dbQuery(updateQuery, getValues)
+
+    return res[0];
+  }catch(error){
+    //
+  }
+}
+
+// async function removeUser(table, {column, cell}) {
+async function removeUser(table, data) {
+  let getKeys = Object.keys(data), getValues = Object.values(data);
+  try{
+    if (getKeys.length === 0 || getValues.length === 0) return null
+    // console.log('Pruning revoked tokens older than 90 days...');
+    // await pool.query("DELETE FROM refresh_tokens WHERE revoked = true AND revoked_at < now() - interval '90 days'");
+    let query = `DELETE FROM ${table} WHERE `;
+    getKeys.map((column, i) => {
+      query += `${column} = '${getValues[i]}'`;
+      query += i < getKeys.length-1 ? ` AND ` : ``;
+    });
+    // await pool.query(`DELETE FROM ${table} WHERE ${column} = '${cell}'`);
+    await pool.query(query);
+    // console.log('Done pruning.');
+
+    return { success: true }
+  }catch(error){
+    console.error(`Error deleting data:`, error)
+    return null
+  }
+}
 
 /* Store refresh token (hash it first). Returns the raw refresh token (to send as cookie) */
 async function dbStoreRefreshToken({ user_id, refreshTokenPlain, userAgent = null, ip = null, expiresAt = null }) {
@@ -148,16 +237,31 @@ async function dbValidateRefreshToken(user_id, refreshTokenPlain) {
   return null
 }
   // await pool.end();
-}
 // run().catch(e=>{ console.error(e); process.exit(1); });
 
-async function execute(query){
-  try{
-    //
-  }catch(err){
-    //
-  }
+async function getUsers(page=1, limit=10){
+
+  const offset = (page - 1) * limit;
+
+  const query = `
+    SELECT
+      id,
+      full_name,
+      email,
+      phone_number,
+      phone_verified
+    FROM users
+    ORDER BY id DESC
+    LIMIT $1
+    OFFSET $2
+  `;
+
+  return await dbQuery(
+    query,
+    [limit, offset]
+  );
 }
+
 
 // *** DATABASE ARCHETECTURE
 // Phone Numbers Table: id, user_id, phone_number, country_code, country_name
@@ -293,4 +397,4 @@ CREATE TABLE contacts (
     created_at TIMESTAMP DEFAULT NOW()
 ); */
 
-module.exports = {envDefs, pool, execute, dbObj, functions: { dbCreateUser, dbGetUserByEmail, removeUser, createRow }}
+module.exports = {envDefs, pool, dbObj, functions: { tablecreateRow, tableGetRows, removeUser, tableUpdateRow, getUsers }}

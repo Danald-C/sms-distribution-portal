@@ -24,6 +24,7 @@ function AuthProvider({ children }) {
   const [accessToken, setAccessToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [gateway, setGateway] = useState({type: 0, from: 'local'}); // '0 = signin' or '1 = signup'
+  const [contacts, setContacts] = useState([]);
 
   useEffect(() => {
     // Try to refresh token on app load
@@ -32,24 +33,49 @@ function AuthProvider({ children }) {
         // const storedToken = JSON.parse(localStorage.getItem("token"));
         const storedToken = localStorage.getItem("token");
         // const storedUser = localStorage.getItem("user");
-        const response = await fetch("http://localhost:4000/api/auth/refresh", {
+        const response = await fetch(`http://localhost:4000/api/auth/refresh`, {
           headers: {
             Authorization: `Bearer ${storedToken}`,
           },
         })
         let storedUser = await response.json();
-        // console.log('Stored User', storedUser);
         // if (storedUser) {
           setAccessToken(storedToken)
-          setUser(storedUser);
+          setUser(storedUser.user.user);
+          // console.log("Check here..", storedUser.user.user.user_id);
           setLoading(false);
+          // temporaryStore({name: 'gateway', value: {type: 0, from: 'local'}}, 0) // type: 0 signin, 1 signup. from: local/gmail/facebook etc 
+          
+          // const resPhoneNumbers = await fetch(`http://localhost:4000/api/auth/fetch-contacts?page=1&limit=10&user_id="${storedUser.user.user.user_id}"`, {  })
+          // let contacts = await resPhoneNumbers.json();
+          // console.log(storedUser.phoneNumbers)
+          setContacts(storedUser.phoneNumbers);
         // }
       } catch (e) {
           console.log('refresh failed', e);
       }
     }
     refresh();
+    // loadPage();
   }, []);
+
+
+  
+  async function loadPage() {
+    try {
+      setLoading(true);
+
+      // const response = await fetch(`http://localhost:4000/api/auth/get-contacts?page=1&limit=10&user_id=${user.id}`, {  })
+      // let contacts = await response.json();
+    } catch (e) {
+        console.log('Could not load phone numbers, ', e);
+        // setAlerts([{from: 2, type: "warning", message: `Could not load phone numbers, ${e}`}]);
+    }finally{
+      setLoading(false);
+    }
+  }
+
+
 
   async function processLL(email, password) { // Local Login
     const res = await fetch('/api/auth/login', { 
@@ -93,9 +119,9 @@ function AuthProvider({ children }) {
   }
 
   function temporaryStore(data, save=1){
-    if(save === 3){
+    if(save === 3){ // Remove
       localStorage.removeItem(data.name);
-    }else{
+    }else{ // Set
       save === 1 && localStorage.setItem(data.name, JSON.stringify(data.value));
     }
 
@@ -107,27 +133,61 @@ function AuthProvider({ children }) {
     
     // console.log(number)
     if(!number){
-      allAlerts.push({from: 0, type: 0, message: "Enter a number"})
-      // setAlerts(allAlerts)
-      // return false
+      // allAlerts.push({from: 0, type: 0, message: "Enter a number"})
+      allAlerts.push({from: 0, type: "caution", message: "Enter a number"})
     }else{
-      /* const noPlus = number.split("+")[1];
-      var lastNine = noPlus.slice(-9);
-      var countryCode = noPlus.length - lastNine.length; */
       if(checkNumber.noPlus().length <= 9){
-        allAlerts.push({from: 1, type: 0, message: "Your provided number is not complete."})
-        // setAlerts(allAlerts)
-        // return false
+        allAlerts.push({from: 1, type: "caution", message: "Your provided number is not complete."})
       }else{
         if(checkNumber.countryCode() >= 4){
-          allAlerts.push({from: 2, type: 0, message: "Your provided number exceeds the required length."})
-          // setAlerts(allAlerts)
-          // return false
+          allAlerts.push({from: 2, type: "caution", message: "Your provided number exceeds the required length."})
         }
       }
     }
 
     return allAlerts;
+    // return displayError(allAlerts);
+  }
+
+  function displayError(alerts){
+    return alerts.map(alert => (<p className={alert.type}>{alert.message}</p>))
+  }
+
+  async function fetchFromBackend({path, data}){
+    const response = await fetch(`http://localhost:4000/${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    return fesponse.json()
+  }
+  
+  
+  // const displayElements = () => {
+  const displayElements = (type, contacts=[], payload=[]) => {
+      /* return contacts.map((contact, index) => (
+        <span key={index} className="mr-2">{contact[0]}: {contact[1]} {contact[2]}</span>
+      )); */
+      let elements = '';
+      
+      if(type == 0){
+          elements = contacts.map((contact, index) => (
+              // <span key={index} className="mr-2">{contact[0]}: {contact[1]} {contact[2]}</span>
+              <span key={index} className="mr-2">{contact.full_name}: {contact.phone_number} {contact.email}</span>
+          ));
+      }
+      
+      if(type == 1){
+          elements = payload.map((eachMess, index) => (
+              // <textarea key={index} defaultValue={eachMess.message} />
+              <textarea key={index} value={eachMess.message} />
+          ))
+      }
+
+      return elements;
   }
 
 
@@ -135,7 +195,8 @@ function AuthProvider({ children }) {
   const values = {data: {
     user,
     accessToken,
-    loading
+    loading,
+    contacts
   }, functions: {
     processLL,
     processGL,
@@ -143,6 +204,9 @@ function AuthProvider({ children }) {
     signup,
     temporaryStore,
     validateNumber,
+    displayElements,
+    fetchFromBackend,
+    displayError
   }, setStates: {
     GW: {gateway, setGateway}
   }}

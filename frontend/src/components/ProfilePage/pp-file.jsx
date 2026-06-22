@@ -6,6 +6,7 @@ export default function ProfilePage() {
   // const { user, loading, logout } = useAuth();
   const { values: { data, functions } } = useAuth();
   // const user = JSON.parse(localStorage.getItem("user"));
+  // console.log(data)
 
   // if (!user) return <div>Please login</div>;
 
