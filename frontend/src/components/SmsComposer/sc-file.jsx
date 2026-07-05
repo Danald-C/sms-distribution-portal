@@ -4,7 +4,7 @@ import { useAuth } from '../../Contexts/auth.jsx';
 export default function ComposeSMS({props}){
 // export default function ComposeSMS(){
     // const { loading, contacts } = props;
-    const { loading } = props;
+    const { sendSMSTo, sentState } = props;
     const { values: { data, functions, setStates } } = useAuth();
     const [sender, senderID] = useState('DC Group');
     // const [message, setMessage] = useState('');
@@ -12,7 +12,8 @@ export default function ComposeSMS({props}){
     // const [slider, setSlider] = useState([false, 1, false]);
     const [slider, setSlider] = useState([true, [1, 1], false]);
     const sliderVal = useRef(null);
-    const [payload, setPayload] = useState([]);
+    const [payload, setPayload] = useState(sendSMSTo);
+    const [doneSending, setDoneSending] = useState(sentState);
     // const [, forceUpdate] = useReducer(x => x + 1, 0);
     
     
@@ -30,13 +31,13 @@ export default function ComposeSMS({props}){
     const handleSendSMS = async (e) => {
         e.preventDefault()
         
-        const getNumbers = data.contacts.map(contact => contact[1]);
-        console.log(JSON.stringify({sender, message, "to": getNumbers}));
+        const getNumbers = data.phoneNumbersData.phone_numbers.data.map(contact => contact.phone_number);
+        console.log(JSON.stringify({payload}));
 
         const endpointUrl = 'http://localhost:4000/api/sms/send'; // Replace with your backend URL
 
         try {
-            const response = await fetch(endpointUrl, {
+            /* const response = await fetch(endpointUrl, {
                 // Set the method to POST
                 method: 'POST',
                 
@@ -48,7 +49,7 @@ export default function ComposeSMS({props}){
                 // Convert the JavaScript array into a JSON string
                 // body: JSON.stringify({sender, message, "to": getNumbers}),
                 // body: JSON.stringify({sender, content: [{message, "to": getNumbers}, {message, "to": getNumbers}]}),
-                body: JSON.stringify({sender, content: payload}),
+                body: JSON.stringify({sender, payload}),
             });
 
             if (!response.ok) {
@@ -56,7 +57,9 @@ export default function ComposeSMS({props}){
             }
 
             const result = await response.json();
-            console.log('Success:', result);
+            console.log('Success:', result); */
+            setDoneSending(true);
+            // setPayload([]);
         } catch (error) {
             console.error('Error:', error);
         }
@@ -70,9 +73,10 @@ export default function ComposeSMS({props}){
         // Filter multiple spaces
         for(let i = 0; i < splitTxt.length; i++){
             if(splitTxt[i] === ""){
-                if(i-1 != filterTxt[0])
+                if(i-1 != filterTxt[0]){
                     filterTxt[1].push(splitTxt[i]);
                     filterTxt[0] = i;
+                }
             }else{
                 filterTxt[1].push(splitTxt[i]);
             }
@@ -109,31 +113,33 @@ export default function ComposeSMS({props}){
             // if(slider[2]){
             if(newSlider[2]){
                 let newMessages = [];
-                data.contacts.map((contact, index) => {
+                // data.phoneNumbersData.phone_numbers.data.map((contact, index) => {
+                sendSMSTo.map((contact, index) => {
                     let splitMsg = message.split(" ");
-                    if(contact[0] != ''){
-                        splitMsg.splice(target, 0, contact[0])
+                    if(contact.full_name != ''){
+                        splitMsg.splice(target, 0, contact.full_name) // Inject name
                         newMessages.push([splitMsg.join(" "), index]);
                     }
                     // return null;
                 });
-                // console.log(sliderVal);
+                // console.log(newMessages);
                 
-                data.contacts.map((contact, index) => {
+                // data.phoneNumbersData.phone_numbers.data.map((contact, index) => {
+                sendSMSTo.map((contact, index) => {
                     let thisMessage = message;
                     newMessages.map((msg) => {
-                        if(index == msg[1])
-                            thisMessage = msg[0];
+                        if(index == msg[1]) thisMessage = msg[0];
                         // console.log(msg[0]);
                     });
 
                     newPayload.push({
                         "message": thisMessage,
-                        "to": [contact[1]]
+                        "to": [contact.phone_number]
                     });
                 });
             }else{
-                const getNumbers = data.contacts.map(contact => contact[1]);
+                // const getNumbers = data.phoneNumbersData.phone_numbers.data.map(contact => contact.phone_number);
+                const getNumbers = sendSMSTo.map(contact => contact.phone_number);
                 newPayload.push({
                     "message": message,
                     "to": getNumbers
@@ -152,10 +158,9 @@ export default function ComposeSMS({props}){
 
     return(
         <>
-            {console.log("Where are you watching? ", loading)}
+            {console.log("Where are you watching? ", sendSMSTo, doneSending)}
             {
-                // (load) &&
-                (loading) &&
+                sendSMSTo.length > 0 && !doneSending &&
             
                 <>
                     <form className="bg-white rounded-xl p-6 shadow" onSubmit={handleSendSMS}>
@@ -167,10 +172,7 @@ export default function ComposeSMS({props}){
                                 </>
                             )
                         }
-                        {
-                        //    console.log(slider)
-                        }
-                        <input type="text" className="flex-grow p-3 border rounded mb-3" placeholder="Sender ID" />
+                        <input type="text" onChange={e => senderID(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Sender ID" />
                         {/* <textarea rows={4} value={message} onChange={e=>setMessage(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Enter your message here..." /> */}
                         <textarea rows={4} value={message} onChange={e => messageBox(e.target.value).message} className="flex-grow p-3 border rounded mb-3" placeholder="Enter your message here..." />
                         <button className="px-4 py-2 bg-indigo-600 text-white rounded">Send SMS</button>
@@ -179,6 +181,7 @@ export default function ComposeSMS({props}){
                     <form className="bg-white rounded-xl p-6 shadow" onSubmit={handleSendSMS}>
                         {slider[0] && (
                             <>
+                            {/* {console.log(slider[2], payload)} */}
                                 {
                                     slider[2] && 
                                     

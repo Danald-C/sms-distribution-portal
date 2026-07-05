@@ -14,6 +14,8 @@ export default function ProfilePage() {
     <>
       <div className="p-6 bg-white rounded-lg max-w-2xl mx-auto">
         <Link to="/" onClick={functions.logout} className="text-blue-500 hover:underline">Logout</Link>
+        <Link to="/dashboard" className="text-blue-500 hover:underline">Back &laquo;</Link>
+        <Link to="/contacts" className="text-blue-500 hover:underline">Contacts</Link>
       </div>
       <div className="p-6 bg-white rounded-lg max-w-2xl mx-auto">
         <h2 className="text-xl font-semibold">Profile</h2>

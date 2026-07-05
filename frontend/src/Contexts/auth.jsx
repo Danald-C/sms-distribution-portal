@@ -12,6 +12,9 @@ export function useAuth() {
 export function ProtectedRoute({ children }) {
   // const { accessToken } = useAuth();
   const { values: { data, functions } } = useAuth();
+  // const { values } = useAuth();
+
+  // console.log(values)
   
   if (!data.accessToken) return <div className="p-6">Please login to access this page. <Link to="/">Login</Link></div>;
   
@@ -24,14 +27,14 @@ function AuthProvider({ children }) {
   const [accessToken, setAccessToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [gateway, setGateway] = useState({type: 0, from: 'local'}); // '0 = signin' or '1 = signup'
-  const [contacts, setContacts] = useState([]);
+  const [phoneNumbersData, setPhoneNumbersData] = useState([]);
 
   useEffect(() => {
     // Try to refresh token on app load
     async function refresh() {
       try {
-        // const storedToken = JSON.parse(localStorage.getItem("token"));
         const storedToken = localStorage.getItem("token");
+        console.log("Check here..", storedToken);
         // const storedUser = localStorage.getItem("user");
         const response = await fetch(`http://localhost:4000/api/auth/refresh`, {
           headers: {
@@ -40,19 +43,21 @@ function AuthProvider({ children }) {
         })
         let storedUser = await response.json();
         // if (storedUser) {
-          setAccessToken(storedToken)
-          setUser(storedUser.user.user);
-          // console.log("Check here..", storedUser.user.user.user_id);
-          setLoading(false);
           // temporaryStore({name: 'gateway', value: {type: 0, from: 'local'}}, 0) // type: 0 signin, 1 signup. from: local/gmail/facebook etc 
           
           // const resPhoneNumbers = await fetch(`http://localhost:4000/api/auth/fetch-contacts?page=1&limit=10&user_id="${storedUser.user.user.user_id}"`, {  })
           // let contacts = await resPhoneNumbers.json();
-          // console.log(storedUser.phoneNumbers)
-          setContacts(storedUser.phoneNumbers);
-        // }
+          console.log("This one...", storedUser)
+        if(storedUser.success){ 
+          setAccessToken(storedToken)
+          setUser(storedUser.user.user);
+          setPhoneNumbersData(storedUser.allData);
+        }
       } catch (e) {
           console.log('refresh failed', e);
+      }finally{
+        // console.log('Did we get here after all?');
+        setLoading(false);
       }
     }
     refresh();
@@ -95,9 +100,9 @@ function AuthProvider({ children }) {
   
   function processGL(data) { // Google Login
     setGateway('google');
-    // console.log("Data Entry", data);
     // localStorage.setItem('token', JSON.stringify(data.token))
     localStorage.setItem('token', data.token)
+    // console.log("Data Entry", localStorage.getItem('token'));
     // localStorage.setItem('user', JSON.stringify(data.user))
     // setAccessToken(JSON.parse(localStorage.getItem('token')));
     setAccessToken(localStorage.getItem('token'));
@@ -174,29 +179,27 @@ function AuthProvider({ children }) {
       let elements = '';
       
       if(type == 0){
-          elements = contacts.map((contact, index) => (
+          elements = contacts?.map((contact, index) => (
               // <span key={index} className="mr-2">{contact[0]}: {contact[1]} {contact[2]}</span>
-              <span key={index} className="mr-2">{contact.full_name}: {contact.phone_number} {contact.email}</span>
+              <span key={index} className="mr-2">{contact.full_name || "No Name"}: {contact.phone_number} {contact.email}</span>
           ));
       }
       
       if(type == 1){
           elements = payload.map((eachMess, index) => (
-              // <textarea key={index} defaultValue={eachMess.message} />
               <textarea key={index} value={eachMess.message} />
+              // <textarea key={index} defaultValue={eachMess.message} />
           ))
       }
 
       return elements;
   }
 
-
-  
-  const values = {data: {
+  let values = {data: {
     user,
     accessToken,
     loading,
-    contacts
+    phoneNumbersData
   }, functions: {
     processLL,
     processGL,
@@ -207,9 +210,9 @@ function AuthProvider({ children }) {
     displayElements,
     fetchFromBackend,
     displayError
-  }, setStates: {
-    GW: {gateway, setGateway}
   }}
+
+  
 
 
   // return <AuthContext.Provider value={{ user, accessToken, gateway, processLL, processGL, logout, signup, loading }}>{children}</AuthContext.Provider>;

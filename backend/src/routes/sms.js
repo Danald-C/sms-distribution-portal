@@ -90,7 +90,10 @@ router.post('/send', async (req, res) => {
     await enqueueSms({ sender, to, message });
     await processWorker(); */ // start the worker to process SMS jobs
 
-    preSMS_Send(req.body);
+    // preSMS_Send(req.body);
+    req.body.payload.map(each => {
+      preSMS_Send(each, req.body.sender);
+    })
     
     res.json({ status: 'queued' });
   }catch(err){
@@ -99,8 +102,10 @@ router.post('/send', async (req, res) => {
   }
 });
 
-async function preSMS_Send(body) {
-  const { sender, to, message } = body;
+// async function preSMS_Send(body) {
+async function preSMS_Send(body, sender) {
+  // const { sender, to, message } = body;
+  const { to, message } = body;
   await enqueueSms({ sender, to, message });
   await processWorker(); // start the worker to process SMS jobs
 }

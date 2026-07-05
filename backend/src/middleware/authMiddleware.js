@@ -41,8 +41,8 @@ async function authMiddleware(req, res, next) {
 }
 
 function getVerified(authHeader) {
-  // console.log(authHeader)
   const token = authHeader.split(" ")[1];
+  // console.log(token)
   return jwt.verify(token, secret);
 }
 
@@ -59,7 +59,7 @@ function verifyJWTMiddleware(req, res, next) {
       // const decoded = jwt.verify(token, secret);
 
         // req.user = decoded;
-        req.user = getVerified(authHeader);;
+        req.user = getVerified(authHeader);
 
         next();
     } catch {

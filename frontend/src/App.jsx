@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import AuthProvider, { useAuth, ProtectedRoute } from './Contexts/auth.jsx';
-import Dashboard from './components/Dashboard/d-file.jsx';
+import Dashboard from './pages/Dashboard.jsx';
 import GetContacts from './components/GetContacts/gc-file.jsx';
 // import GoogleLoginButton from './components/Auth/GoogleLoginButton.jsx';
 // import SmsPortalDemo from './pages/composeSMS.jsx';
@@ -44,7 +44,7 @@ function App() {
         Click on the Vite and React logos to learn more
       </p> */}
 
-      <AuthProvider>
+      {/* <AuthProvider> */}
         {/* <ProtectedRoute> */}
           <Routes>
             <Route exact path="/" element={<LoginPage />} />
@@ -55,21 +55,23 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+              } />
+            <Route path="/contacts" element={
+              <ProtectedRoute>
+                <GetContacts />
+              </ProtectedRoute>
+              } />
           </Routes>
           <div className="min-h-screen bg-gray-50 p-6">
             <div className="max-w-6xl mx-auto">
-              <header className="mb-6 flex justify-between items-center">
-                <h1 className="text-2xl font-bold">SMS Portal</h1>
-                {/* <GoogleLoginButton /> */}
-              </header>
-
               <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="col-span-2">
-                  <GetContacts />
                 </div>
-                <div>
-                  <Dashboard />
-                </div>
+                <div></div>
                 <div>
                   {/* <SmsPortalDemo /> */}
                 </div>
@@ -80,7 +82,7 @@ function App() {
             </div>
           </div>
         {/* </ProtectedRoute> */}
-      </AuthProvider>
+      {/* </AuthProvider> */}
     </>
   )
 }

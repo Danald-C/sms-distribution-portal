@@ -91,9 +91,9 @@ router.post('/googleoauth', async (req, res)=> {
   try{
     let oAuth_res = await oAuth(req, res), newUser = false; // Process Google Credential
     
-    console.log(oAuth_res)
     let userEmail = oAuth_res.user.email;
-    let thisUser = await db.functions.tableGetRows("users", { email: userEmail })[0];
+    let userData = await db.functions.tableGetRows("users", { email: userEmail }), thisUser = userData.data[0];
+    // console.log(thisUser)
     if(!thisUser){
       thisUser = await db.functions.tableCreateRow("users", { name: oAuth_res.user.name, email: userEmail, google_id: oAuth_res.user.google_id, profile_picture: oAuth_res.user.picture })
 
@@ -104,8 +104,8 @@ router.post('/googleoauth', async (req, res)=> {
     
     let user = {user_id: `${thisUser.id}`, ...oAuth_res.user}
     let jwtToken = signAccessToken({user})
+    // console.log(jwtToken)
     let returnedData = {success: oAuth_res.success, token: jwtToken, user, newUser };
-    console.log(returnedData)
     // res.json({ oAuth_res })
     res.json(returnedData)
   }catch(error){
@@ -159,7 +159,7 @@ router.post('/verify-number', async (req, res) => {
       // if(req.body.process === 'send-otp'){
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       
-      let thisUser = await db.functions.tableGetRows("users", { id: verified.user.user_id })[0];
+      let thisUser = await db.functions.tableGetRows("users", { id: verified.user.user_id }).data[0];
       if(thisUser){
         if(thisUser.phone_verified){
           status = {success: true, complete: true};
@@ -172,7 +172,7 @@ router.post('/verify-number', async (req, res) => {
           }
           
           // console.log(`Watch here: ${success}`, verified.user, `THIS USER: `, thisUser, req.body)
-          let thisOtp = await db.functions.tableGetRows("phone_otp", { user_id: `${thisUser.id}` })[0];
+          let thisOtp = await db.functions.tableGetRows("phone_otp", { user_id: `${thisUser.id}` }).data[0];
           // console.log(`Watch here: ${status.success}`, `Otp: ${thisOtp.otp} == ${req.body.otp}`, `Date: ${new Date(thisOtp.expires_at)} and ${new Date()}`, verified.user)
           if(!thisOtp){
             let otpResult = await db.functions.tablecreateRow('phone_otp', { user_id: thisUser.id, otp, expires_at: expiresAt });
@@ -288,11 +288,48 @@ router.post('/remove-record', async (req, res) => {
 router.post('/save-contacts', async (req, res) => {
   try{
     // console.log(req.body)
-    req.body.contacts.map(async (person) => await db.functions.tablecreateRow("phone_numbers", {user_id: req.body.user_id, phone_number: person[1], date_created: new Date(), full_name: person[0], email: person[2] ? person[2] : "" }))
+    // req.body.contacts.map(async (person) => await db.functions.tablecreateRow("phone_numbers", {user_id: req.body.user_id, phone_number: person[1], date_created: new Date(), full_name: person[0], email: person[2] ? person[2] : "" }))
+    let phone_numbers = [];
+    if(req.query.action == "create"){
+      req.body.map(async (person) => await db.functions.tablecreateRow("phone_numbers", {user_id: req.query.user_id, phone_number: person.phone_number, date_created: new Date(), full_name: person.full_name, email: person.email || "" }));
+    }
+    if(req.query.action == "update"){
+      req.body.map(async (person) => await db.functions.tableUpdateRow("phone_numbers", {id: person.id, full_name: person.full_name, phone_number: person.phone_number, email: person.email }));
+    }
+    if(req.query.action == "remove"){
+      req.body.map(async (person) => {
+        await db.functions.removeUser("phone_numbers", { id: person.id, user_id: req.query.user_id });
+      })
+    }
+    phone_numbers = await getPhoneNumbers(1, 10, req.query.user_id, "phone_numbers");
+    // console.log(phone_numbers)
   
-    res.json({ status: "Success" });
+    res.json({ Success: true, phone_numbers });
   }catch(error){
-    res.json( {error: 'Failed to save contacts,'+ error} );
+    res.json( {Success: false, error: 'Failed to save contacts,'+ error} );
+  }
+});
+
+// Save Contacts
+router.post('/contact-grouping', async (req, res) => {
+  try{
+    // let newRecord = await db.functions.tablecreateRow("phone_number_groups", {user_id: req.body.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
+    if(req.query.action == "create"){
+      let newRecord = await db.functions.tablecreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
+    }
+    if(req.query.action == "update"){
+      let newRecord = await db.functions.tableUpdateRow("phone_number_groups", {id: req.query.id, group_name: req.body.name, group_description: req.body.description });
+    }
+    if(req.query.action == "remove"){
+      await db.functions.removeUser("phone_number_groups", { id: req.query.id, user_id: req.query.user_id });
+    }
+    // let phone_number_groups = await getPhoneNumbers(1, 10, newRecord.user_id, "phone_number_groups");
+    let phone_number_groups = await getPhoneNumbers(1, 10, req.query.user_id, "phone_number_groups");
+    console.log(phone_number_groups)
+  
+    res.json({ success: true, phone_number_groups });
+  }catch(error){
+    res.json( {success: false, error: 'Could not create group,'+ error} );
   }
 });
 
@@ -307,12 +344,16 @@ router.post('/fetch-contacts', async (req, res) => {
   }
 });
 
-async function getPhoneNumbers(page=1, limit=10, user_id){
-  let results = await db.functions.tableGetRows("phone_numbers", { user_id }, {orderBy: "id", desc: "DESC", limit, offset: page});
-  // let result = await db.functions.getUsers(page, limit);
-  console.log(results)
+async function getPhoneNumbers(page=1, limit=10, user_id, table){
+  try{
+    let results = await db.functions.tableGetRows(table, { user_id }, {orderBy: "id", desc: "DESC", page, limit});
+    // let result = await db.functions.getUsers(page, limit);
+    // console.log(results)
 
-  return results;
+    return results;
+  }catch(error){
+    res.json( {error: 'Unfortunately, this process failed. '+ error} );
+  }
 }
 
 // Refresh
@@ -552,10 +593,23 @@ router.post('/refresh', express.json(), async (req, res) => {
 }); */
 
 router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
-  // console.log(req.user.user.user_id);
-  let phoneNumbers = await getPhoneNumbers(1, 10, req.user.user.user_id);
-  
-  res.json({user: req.user, phoneNumbers});
+  try{
+    // let phoneNumbers = await getPhoneNumbers(1, 10, req.user.user.user_id, "phone_numbers");
+    // let phone_number_groups = await getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups");
+    
+    const [
+        phone_numbers,
+        phone_number_groups
+    ] = await Promise.all([
+        getPhoneNumbers(1, 10, req.user.user.user_id, "phone_numbers"),
+        getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups")
+    ]);
+    // console.log({phoneNumbers, phone_number_groups});
+
+    res.json({success: true, user: req.user, allData: {phone_numbers, phone_number_groups}});
+  }catch(error){
+    res.json( {success: false, error: 'Unfortunately, this process failed. '+ error} );
+  }
 });
 
 // Login

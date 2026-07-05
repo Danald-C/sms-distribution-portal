@@ -74,7 +74,7 @@ WHERE revoked = TRUE AND revoked_at IS NULL; */
 /* Get user by email */
 // async function dbGetUserByEmail(email) {
 // async function tableGetRow(table, {column, cell}) {
-async function tableGetRows(table, data, extra={orderBy: null, desc: null, limit: null, offset: null}) {
+async function tableGetRows(table, data, extra={orderBy: null, desc: null, page: null, limit: null}) {
   let getKeys = Object.keys(data), getValues = Object.values(data);
   try{
     // if (!column || !cell) return null
@@ -102,15 +102,22 @@ async function tableGetRows(table, data, extra={orderBy: null, desc: null, limit
       getValues.push(extra.limit);
       query +=  ` LIMIT $${getValues.length}`;
     }
-    if(extra.offset){
-      getValues.push(extra.offset);
+    if(extra.page){
+      const offset = (extra.page-1) * extra.limit;
+      getValues.push(offset);
       query += ` OFFSET $${getValues.length}`;
     }
     
+    // console.log(getValues);
     const res = await dbQuery(query, getValues)
-    console.log(data);
     
-    return res || null
+    // return res || null
+    return {data: res || [], pagination:
+          {
+            page: extra.page,
+            limit: extra.limit,
+            total: res.length
+          }}
   }catch(error){
     // console.error(`Error fetching row from ${table} where ${column} = ${cell}:`, error)
     let str = `Error fetching row from ${table} where `;
@@ -141,7 +148,7 @@ async function tablecreateRow(table, data) {
   try{
     const columns = Object.keys(data).join(', ');
     const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
-    console.log(`INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`)
+    // console.log(`INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`)
     const values = Object.values(data);
     const result = await dbQuery(`INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`, values);
 
@@ -166,7 +173,6 @@ async function tableUpdateRow(table, dataObj) {
 
     if (getKeys.length < 2 || getValues.length < 2) return null;
     
-    // console.log(skipFirstV)
     skipFirstK.forEach((key, i) => {
       updateQuery += `${key} = COALESCE($${i+2}, ${key})`
       /* if(i < skipFirstK.length-1){
@@ -180,6 +186,8 @@ async function tableUpdateRow(table, dataObj) {
 
     const res = await dbQuery(updateQuery, getValues)
 
+    // console.log(res)
+    // res.json({Success: true});
     return res[0];
   }catch(error){
     //
