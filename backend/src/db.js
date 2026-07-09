@@ -78,7 +78,7 @@ async function tableGetRows(table, data, extra={orderBy: null, desc: null, page:
   let getKeys = Object.keys(data), getValues = Object.values(data);
   try{
     // if (!column || !cell) return null
-    if (getKeys.length === 0 || getValues.length === 0) return null
+    // if (getKeys.length === 0 || getValues.length === 0) return null
     // const res = await dbQuery('SELECT * FROM users WHERE email = $1 LIMIT 1', [email])
     /* let query = `SELECT * FROM ${table} WHERE `;
     getKeys.map((column, i) => {
@@ -108,8 +108,8 @@ async function tableGetRows(table, data, extra={orderBy: null, desc: null, page:
       query += ` OFFSET $${getValues.length}`;
     }
     
-    // console.log(getValues);
     const res = await dbQuery(query, getValues)
+    // console.log(res);
     
     // return res || null
     return {data: res || [], pagination:

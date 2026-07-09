@@ -34,7 +34,7 @@ function AuthProvider({ children }) {
     async function refresh() {
       try {
         const storedToken = localStorage.getItem("token");
-        console.log("Check here..", storedToken);
+        console.log("Stored Token..", storedToken);
         // const storedUser = localStorage.getItem("user");
         const response = await fetch(`http://localhost:4000/api/auth/refresh`, {
           headers: {

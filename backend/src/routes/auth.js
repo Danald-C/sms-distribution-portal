@@ -315,10 +315,10 @@ router.post('/contact-grouping', async (req, res) => {
   try{
     // let newRecord = await db.functions.tablecreateRow("phone_number_groups", {user_id: req.body.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
     if(req.query.action == "create"){
-      let newRecord = await db.functions.tablecreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
+      await db.functions.tablecreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
     }
     if(req.query.action == "update"){
-      let newRecord = await db.functions.tableUpdateRow("phone_number_groups", {id: req.query.id, group_name: req.body.name, group_description: req.body.description });
+      await db.functions.tableUpdateRow("phone_number_groups", {id: req.query.id, group_name: req.body.name, group_description: req.body.description });
     }
     if(req.query.action == "remove"){
       await db.functions.removeUser("phone_number_groups", { id: req.query.id, user_id: req.query.user_id });
@@ -330,6 +330,32 @@ router.post('/contact-grouping', async (req, res) => {
     res.json({ success: true, phone_number_groups });
   }catch(error){
     res.json( {success: false, error: 'Could not create group,'+ error} );
+  }
+});
+
+router.post('/group-processor', async (req, res) => {
+  try{
+    let phoneNumGrpAssociations = await db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.query.user_id });
+    req.body.contacts.map(async (each_1) => {
+      if(req.query.action == "remove"){
+        await db.functions.removeUser("pngroups_and_pn_association", { group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.query.user_id });
+        if(phoneNumGrpAssociations.data.length > 0){
+          let indexToRemove = phoneNumGrpAssociations.data.findIndex(each_2 => each_2.group_id == req.body.group.id && each_2.phone_number_id == each_1.id);
+          indexToRemove >= 0 && phoneNumGrpAssociations.data.splice(indexToRemove, 1);
+        }
+      }
+      if(req.query.action == "add"){
+        if(!phoneNumGrpAssociations.data.some(each_2 => each_2.group_id == req.body.group.id && each_2.phone_number_id == each_1.id)){
+          phoneNumGrpAssociations.data.push(await db.functions.tablecreateRow("pngroups_and_pn_association", {group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.query.user_id }))
+        }
+      }
+    });
+        console.log(phoneNumGrpAssociations);
+    // phoneNumGrpAssociations = db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.query.user_id });
+
+    res.json({Success: true, phoneNumGrpAssociations});
+  }catch(error){
+    res.json( {Success: false, error: 'Unfortunately, this process failed. '+ error} );
   }
 });
 
@@ -599,14 +625,16 @@ router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
     
     const [
         phone_numbers,
-        phone_number_groups
+        phone_number_groups,
+        phoneNumGrpAssociations
     ] = await Promise.all([
         getPhoneNumbers(1, 10, req.user.user.user_id, "phone_numbers"),
-        getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups")
+        getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups"),
+        db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.user.user.user_id })
     ]);
-    // console.log({phoneNumbers, phone_number_groups});
+    console.log(phoneNumGrpAssociations);
 
-    res.json({success: true, user: req.user, allData: {phone_numbers, phone_number_groups}});
+    res.json({success: true, user: req.user, allData: {phone_numbers, phone_number_groups, phoneNumGrpAssociations}});
   }catch(error){
     res.json( {success: false, error: 'Unfortunately, this process failed. '+ error} );
   }

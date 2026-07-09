@@ -32,12 +32,12 @@ export default function ComposeSMS({props}){
         e.preventDefault()
         
         const getNumbers = data.phoneNumbersData.phone_numbers.data.map(contact => contact.phone_number);
-        console.log(JSON.stringify({payload}));
+        // console.log(JSON.stringify({payload}));
 
         const endpointUrl = 'http://localhost:4000/api/sms/send'; // Replace with your backend URL
 
         try {
-            /* const response = await fetch(endpointUrl, {
+            const response = await fetch(endpointUrl, {
                 // Set the method to POST
                 method: 'POST',
                 
@@ -57,7 +57,7 @@ export default function ComposeSMS({props}){
             }
 
             const result = await response.json();
-            console.log('Success:', result); */
+            console.log('Success:', result);
             setDoneSending(true);
             // setPayload([]);
         } catch (error) {
@@ -65,7 +65,6 @@ export default function ComposeSMS({props}){
         }
     }
 
-    // const messageBox = event => {
     const messageBox = value => {
         // let splitTxt = event.target.value.split(" "), newSlider = [false, 0, false], filterTxt = [-1, []];
         let splitTxt = value.split(" "), newSlider = [false, [slider[1][0], 0], false], filterTxt = [-1, []];
@@ -85,14 +84,12 @@ export default function ComposeSMS({props}){
         // Determine slider values
         if(filterTxt[1].length >= 2){
             var lastWord = filterTxt[1][filterTxt[1].length-1];
-            if(filterTxt[1].length == 2 && lastWord.length >= 1)
-                newSlider[0] = true;
-            if(filterTxt[1].length > 2)
-                newSlider[0] = true;
-            if(filterTxt[1][filterTxt[1].length-1].length >= 1 && newSlider[0])
-                newSlider[1][1] = filterTxt[1].length-1;
+            if(filterTxt[1].length == 2 && lastWord.length >= 1) newSlider[0] = true;
+            if(filterTxt[1].length > 2) newSlider[0] = true;
+            if(lastWord.length >= 1 && newSlider[0]) newSlider[1][1] = filterTxt[1].length-1;
         }
-        setSlider(newSlider)
+        setSlider(newSlider);
+        console.log("Check the Message: ", newSlider, filterTxt);
         
         // processSlider(newSlider[1], 1, newSlider);
         // return setMessage(filterTxt[1].join(" "));
@@ -158,9 +155,10 @@ export default function ComposeSMS({props}){
 
     return(
         <>
-            {console.log("Where are you watching? ", sendSMSTo, doneSending)}
+            {/* {console.log("Where are you watching? ", sendSMSTo, doneSending)} */}
             {
-                sendSMSTo.length > 0 && !doneSending &&
+                // sendSMSTo.length > 0 && !doneSending &&
+                !doneSending &&
             
                 <>
                     <form className="bg-white rounded-xl p-6 shadow" onSubmit={handleSendSMS}>

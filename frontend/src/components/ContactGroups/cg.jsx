@@ -19,9 +19,7 @@ export default function ContactGrouping(){
     
     async function settingData(){
         try{
-            if(data.phoneNumbersData.phone_number_groups){
-                setPhone_number_groups(data.phoneNumbersData.phone_number_groups)
-            }
+            if(data.phoneNumbersData.phone_number_groups) setPhone_number_groups(data.phoneNumbersData.phone_number_groups)
         }catch(error){
             //
         }finally{
