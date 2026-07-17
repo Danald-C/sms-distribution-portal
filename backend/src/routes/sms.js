@@ -5,6 +5,8 @@ const router = express.Router()
 
 const csvParse = require('csv-parse');
 
+const db = require("../db.js"); // your DB connection
+const Middlewares = require('../middleware/authMiddleware');
 const { connectionRedis } = require('../lib/redisClient');
 const { processWorker } = require('../worker/sms-worker');
 
@@ -84,18 +86,74 @@ axios(config)
 }); */
 //*******  */
 
-router.post('/send', async (req, res) => {
+router.post('/send', Middlewares.verifyJWTMiddleware, async (req, res) => {
   try{
     /* const { sender, to, message } = req.body;
     await enqueueSms({ sender, to, message });
     await processWorker(); */ // start the worker to process SMS jobs
+    
+    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user.user_id }), unit_1 = Number(thisUser.data[0].unit_1), unit_2 = Number(thisUser.data[0].unit_2), remainder = 0;
+    // req.body.payload.map(each => Math.max(1, Math.ceil(each.message.length / 160))).reduce((acc, val) => acc + val, 0);
+
+    req.body.payload.map(each => remainder += each.to.length);
+    if(unit_1 != 0){
+      if(remainder >= unit_1){
+        remainder -= unit_1;
+        unit_1 = 0;
+      }else{
+        unit_1 -= remainder;
+        remainder = 0
+      }
+      await db.functions.tableUpdateRow("users", {id: req.user.user.user_id, unit_1 });
+    }
+
+    if(remainder > 0 && unit_2 != 0){
+      // Do SMS Unit deduction from Other...
+      if(unit_2 >= remainder){
+        unit_2 -= remainder;
+        remainder = 0;
+      }else{
+        remainder -= unit_2;
+        unit_2 = 0;
+      }
+      await db.functions.tableUpdateRow("users", {id: req.user.user.user_id, unit_2 });
+    }
+
+  if(remainder > 0){
+    // req.body.payload = req.body.payload.slice(-remainder, req.body.payload.length); // Truncate the message list
+    // let totalRecipients = req.body.payload.reduce((acc, each) => acc + each.to.length, 0);
+    // let excessRecipients = totalRecipients - remainder;
+    let filteredPayload = [], unsentPayloads = [];
+    req.body.payload.map(each => {
+      // each.to = each.to.slice(-remainder, each.to.length);
+      if(remainder >= each.to.length){
+        remainder -= each.to.length;
+        filteredPayload.push(each);
+      }else{
+        if(remainder > 0){
+          each.to = each.to.slice(0, each.to.length-remainder);
+          filteredPayload.push(each);
+          unsentPayloads.push({ ...each, to: each.to.slice(each.to.length-remainder) }); // All remaining recipients are unsent
+          remainder = 0;
+        }else{
+          unsentPayloads.push(each); // All remaining recipients are unsent
+        }
+      }
+    }); // Truncate the message list
+  }
 
     // preSMS_Send(req.body);
-    req.body.payload.map(each => {
+    // req.body.payload.map(each => {
+    filteredPayload.map(each => {
       preSMS_Send(each, req.body.sender);
-    })
+    });
+
+    if(req.body.payload.length > 0){
+      // Write History here...
+    }
     
-    res.json({ status: 'queued' });
+    // res.json({ Status: 'queued', totalRecipients: req.body.payload.reduce((acc, each) => acc + each.to.length, 0), unsentPayloads });
+    res.json({ Status: 'queued', unsentPayloads });
   }catch(err){
     console.error('Error in /send route:', err);
     return res.status(500).json({ error: 'Server error' });

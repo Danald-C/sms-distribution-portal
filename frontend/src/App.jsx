@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import AuthProvider, { useAuth, ProtectedRoute } from './Contexts/auth.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import GetContacts from './components/GetContacts/gc-file.jsx';
+import ContactUs from './pages/ContactUs.jsx';
 // import GoogleLoginButton from './components/Auth/GoogleLoginButton.jsx';
 // import SmsPortalDemo from './pages/composeSMS.jsx';
 // import LetsFindOut from  './pages/letsfindout.jsx';
@@ -15,6 +16,7 @@ import LoginPage from './components/LoginPage/lp-file.jsx'
 import ProfilePage from './components/ProfilePage/pp-file.jsx'
 import SignupPage from './components/SignupPage/sp-file.jsx'
 import VerifyContactPage from './components/Verification/Verify-Contact.jsx'
+import ComposeSMS from './components/SmsComposer/sc-file.jsx';
 
 // http://localhost:3000
 
@@ -63,6 +65,16 @@ function App() {
             <Route path="/contacts" element={
               <ProtectedRoute>
                 <GetContacts />
+              </ProtectedRoute>
+              } />
+            <Route path="/send-sms" element={
+              <ProtectedRoute>
+                <ComposeSMS />
+              </ProtectedRoute>
+              } />
+            <Route path="/contact-us" element={
+              <ProtectedRoute>
+                <ContactUs />
               </ProtectedRoute>
               } />
           </Routes>

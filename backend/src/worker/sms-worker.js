@@ -40,9 +40,9 @@ async function sendSmsViaProvider(sender, to, message) {
     };
 
     axios(config).then(function (response) {
-    console.log(JSON.stringify(response.data));
+      console.log(JSON.stringify(response.data));
     }).catch(function (error) {
-    console.log(error);
+      console.log(error);
     });
   // integrate real provider here (Twilio, Hubtel, etc.)
 }

@@ -48,14 +48,17 @@ export default function ContactGrouping(){
                 body: JSON.stringify({name, description, user_id: data.user.user_id}),
             })
             const responseData = await response.json() */
-            const responseData = await ContactGroupRequest(1, selected ? "update" : "create");
+            // const responseData = await ContactGroupRequest(1, selected ? "update" : "create");
+            const responseData = await ContactGroupRequest("update");
 
+        // console.log(responseData);
             if(responseData.success){
                 // setStates.ContactsData({phone_number_groups: responseData.phone_number_groups, ...setStates.phoneNumbersData});
                 setPhone_number_groups(responseData.phone_number_groups)
-                console.log(responseData)
+                /* setSelected({});
                 setName('')
-                setDescription('')
+                setDescription('') */
+                processSelected(selected);
             }
             setClear(true);
             setAlerts([]);
@@ -73,16 +76,22 @@ export default function ContactGrouping(){
         setClear(false)
     }
 
-    async function ContactGroupRequest(mode, action="get", load=false, id=0){
-        let bodyData = { name: "", description: "" };
+    // async function ContactGroupRequest(mode, action="get", load=false, id=0){
+    async function ContactGroupRequest(action="get", load=false){
+        let bodyData = { name: "", description: "" }, id=0;
 
-        if(mode === 0){
+        /* if(mode === 0){
             // action = "remove";
-        }
+        } */
 
-        if(mode === 1){
+        /* if(mode === 1){
+            // bodyData = { name, description }
+            // action = "create";
+        } */
+
+        if(selected){
+            id = selected.id;
             bodyData = { name, description }
-            action = "create";
         }
 
         const response = await fetch(`http://localhost:4000/api/auth/contact-grouping?id=${id}&user_id=${data.user.user_id}&action=${action}`, {
@@ -116,7 +125,6 @@ export default function ContactGrouping(){
     }
 
     function processSelected(thisData){
-        // console.log(thisData);
         if(selected && thisData.id == selected.id){
             setSelected({});
             setName('')
@@ -136,20 +144,18 @@ export default function ContactGrouping(){
         <>
             {alerts.length > 0 && functions.displayError(alerts)}
             {/* {console.log("Okay whats's up? ", clear)} */}
-            <Link to="/profile" className="text-blue-500 hover:underline">Profile</Link>
             <div>
                 <h2>Create Phone Number Group</h2>
                 <form className="bg-white rounded-xl p-6 shadow bg-white p-6 rounded-2xl shadow-lg w-full max-w-md" onSubmit={submit}>
                     {/* <input type="text" value={clear ? '' : selected.group_name || name} onChange={e=>getValues(e, 0)} className="flex-grow p-3 border rounded mb-3" placeholder="Group Name" /> */}
-                    <input type="text" value={clear ? '' : selected.group_name || name} onChange={e=>setName(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Group Name" />
-                    {/* <textarea rows={4} value={clear ? '' : selected.group_description || description} onChange={e=>getValues(e, 1)} className="flex-grow p-3 border rounded mb-3" placeholder="Description... Optional." /> */}
-                    <textarea rows={4} value={clear ? '' : selected.group_description || description} onChange={e=>setDescription(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Description... Optional." />
+                    <input type="text" value={clear ? '' : name} onChange={e=>setName(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Group Name" />
+                    <textarea rows={4} value={description} onChange={e=>setDescription(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Description... Optional." />
                     <button className="px-4 py-2 bg-indigo-600 text-white rounded">{selected.group_name ? "Change" : "Create"} Group</button>
                 </form>
                 <ul>
                     {/* {data.phoneNumbersData.phone_number_groups.data.map(each => { */}
                     {!loading && phone_number_groups.data.map(each => {
-                        return (<li key={each.id}><a href='#' onClick={() => processSelected(each)}>{each.group_name}</a> <a href='#' onClick={() => ContactGroupRequest(0, "remove", true, each.id)}>remove</a></li>)
+                        return (<li key={each.id}><a href='#' onClick={() => processSelected(each)}>{each.group_name}</a> | <a href='#' onClick={() => ContactGroupRequest("remove", true)}>remove</a></li>)
                     })}
                 </ul>
             </div>

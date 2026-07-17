@@ -8,6 +8,7 @@ const bcrypt = require('bcrypt')
 const { Pool } = require('pg')
 const crypto = require('crypto')
 const { v4: uuidv4 } = require('uuid');
+const nodemailer = require("nodemailer");
 
 const Middlewares = require('../middleware/authMiddleware');
 const oAuth = require('../api/auth/oAuthController')
@@ -17,7 +18,7 @@ const { redis, REUSE_WINDOW_SEC } = require('../lib/redisClient');
 // const { sendReuseAlert } = require('../lib/email');
 const tokenStore = require('../lib/tokenStore');
 
-// EMAIL PASSWORD
+
 
 function signAccessToken(user) {
   // const payload = { sub: user.id, email: user.email, name: user.name || null }
@@ -102,7 +103,8 @@ router.post('/googleoauth', async (req, res)=> {
       if(!thisUser.phone_verified) newUser = true;
     }
     
-    let user = {user_id: `${thisUser.id}`, ...oAuth_res.user}
+    let user = {user_id: thisUser.id, ...oAuth_res.user}
+    // let user = {user_id: thisUser.id, smsDefault: {sender: thisUser.sender, message: thisUser.message}, ...oAuth_res.user}
     let jwtToken = signAccessToken({user})
     // console.log(jwtToken)
     let returnedData = {success: oAuth_res.success, token: jwtToken, user, newUser };
@@ -298,6 +300,7 @@ router.post('/save-contacts', async (req, res) => {
     }
     if(req.query.action == "remove"){
       req.body.map(async (person) => {
+        await db.functions.removeUser("pngroups_and_pn_association", { phone_number_id: person.id, user_id: req.query.user_id });
         await db.functions.removeUser("phone_numbers", { id: person.id, user_id: req.query.user_id });
       })
     }
@@ -315,7 +318,7 @@ router.post('/contact-grouping', async (req, res) => {
   try{
     // let newRecord = await db.functions.tablecreateRow("phone_number_groups", {user_id: req.body.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
     if(req.query.action == "create"){
-      await db.functions.tablecreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
+      await db.functions.tablecreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() });
     }
     if(req.query.action == "update"){
       await db.functions.tableUpdateRow("phone_number_groups", {id: req.query.id, group_name: req.body.name, group_description: req.body.description });
@@ -325,7 +328,7 @@ router.post('/contact-grouping', async (req, res) => {
     }
     // let phone_number_groups = await getPhoneNumbers(1, 10, newRecord.user_id, "phone_number_groups");
     let phone_number_groups = await getPhoneNumbers(1, 10, req.query.user_id, "phone_number_groups");
-    console.log(phone_number_groups)
+      console.log(phone_number_groups);
   
     res.json({ success: true, phone_number_groups });
   }catch(error){
@@ -350,12 +353,27 @@ router.post('/group-processor', async (req, res) => {
         }
       }
     });
-        console.log(phoneNumGrpAssociations);
+        // console.log(phoneNumGrpAssociations);
     // phoneNumGrpAssociations = db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.query.user_id });
 
     res.json({Success: true, phoneNumGrpAssociations});
   }catch(error){
     res.json( {Success: false, error: 'Unfortunately, this process failed. '+ error} );
+  }
+});
+
+router.post('/sms-default', Middlewares.verifyJWTMiddleware, async (req, res) => {
+  try{
+    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user.user_id });
+    thisUser = thisUser.data[0];
+    if(req.query.action == "update"){
+      thisUser = await db.functions.tableUpdateRow("users", {id: req.user.user.user_id, sender: req.body.sender, message: req.body.message });
+    }
+      console.log(req.user.user, req.body, thisUser);
+
+    res.json({ Success: true, smsDefault: {sender: thisUser.sender, message: thisUser.message}});
+  }catch(error){
+    res.json( {error: 'Unfortunately, this process failed. '+ error} );
   }
 });
 
@@ -624,19 +642,79 @@ router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
     // let phone_number_groups = await getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups");
     
     const [
-        phone_numbers,
-        phone_number_groups,
-        phoneNumGrpAssociations
+      thisUser,
+      phone_numbers,
+      phone_number_groups,
+      phoneNumGrpAssociations
     ] = await Promise.all([
-        getPhoneNumbers(1, 10, req.user.user.user_id, "phone_numbers"),
-        getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups"),
-        db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.user.user.user_id })
+      db.functions.tableGetRows("users", { id: req.user.user.user_id }),
+      getPhoneNumbers(1, 10, req.user.user.user_id, "phone_numbers"),
+      getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups"),
+      db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.user.user.user_id })
     ]);
-    console.log(phoneNumGrpAssociations);
 
-    res.json({success: true, user: req.user, allData: {phone_numbers, phone_number_groups, phoneNumGrpAssociations}});
+    const date1 = new Date(thisUser.data[0].unit_1_date);
+    const date2 = new Date('2026-07-15');
+    // Subtracting dates returns the difference in milliseconds
+    const diffInMs = Math.abs(date2 - date1);
+    // Convert milliseconds to days: (1000ms * 60s * 60m * 24h)
+    const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+
+    if(diffInDays >= 31){
+      await db.functions.tableUpdateRow("users", {id: req.user.user.user_id, unit_1: 30, unit_1_date: new Date()});
+    }
+
+    res.json({success: true, user: req.user.user, allData: {user_info: {unit_1: thisUser.data[0].unit_1, unit_2: thisUser.data[0].unit_2}, phone_numbers, phone_number_groups, phoneNumGrpAssociations}});
   }catch(error){
     res.json( {success: false, error: 'Unfortunately, this process failed. '+ error} );
+  }
+});
+
+router.post('/contact-us', async (req, res) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+          user: process.env.EMAIL_ADDRESS,
+          pass: process.env.EMAIL_PASSWORD
+      }
+    });
+    // console.log(transporter);
+
+    await db.functions.tablecreateRow("contact_form", {user_id: req.query.user_id, name: req.body.name, subject: req.body.subject, message: req.body.message, created_at: new Date(), company: req.body.company});
+    let user = await db.functions.tableGetRows("users", { id: req.query.user_id });
+    await transporter.sendMail({
+      from: process.env.EMAIL_ADDRESS,
+      to: process.env.EMAIL_ADDRESS,
+      subject: req.body.subject,
+      html: `
+          <h2>New Contact Form</h2>
+
+          <p><b>Name:</b> ${req.body.name}</p>
+          <p><b>Email:</b> ${req.body.email}</p>
+          <p><b>Phone:</b> ${user.data[0].phone_number}</p>
+
+          <p>${req.body.message}</p>
+      `
+    });
+    /* await transporter.sendMail({
+      from: process.env.EMAIL_ADDRESS,
+      replyTo: req.body.email,
+      subject: "We've received your message",
+      html: `
+          <p>Hello ${req.body.name},</p>
+          <p>Thank you for contacting DC Group.</p>
+          <p>We've received your inquiry and one of our team members will respond shortly.</p>
+          <p>
+
+Regards,
+DC Group</p>
+      `
+    }); */
+
+    res.json({Success: true});
+  }catch(error){
+    res.json( {Success: false, error: 'Unfortunately, this process failed. '+ error} );
   }
 });
 

@@ -99,7 +99,7 @@ function GoogleLoginButton() {
         // let getGateway = functions.temporaryStore({name: 'gateway', value: {}}, 0);
         // navigate("/profile");
         // navigate(getGateway && getGateway.type === 1 || data.newUser ? "/verify-contact" : "/profile");
-        navigate(data.newUser ? "/verify-contact" : "/profile");
+        navigate(data.newUser ? "/verify-contact" : "/dashboard");
       }else{
         navigate("/");
       }

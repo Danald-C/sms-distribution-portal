@@ -40,7 +40,7 @@ function AuthProvider({ children }) {
           headers: {
             Authorization: `Bearer ${storedToken}`,
           },
-        })
+        });
         let storedUser = await response.json();
         // if (storedUser) {
           // temporaryStore({name: 'gateway', value: {type: 0, from: 'local'}}, 0) // type: 0 signin, 1 signup. from: local/gmail/facebook etc 
@@ -50,7 +50,7 @@ function AuthProvider({ children }) {
           console.log("This one...", storedUser)
         if(storedUser.success){ 
           setAccessToken(storedToken)
-          setUser(storedUser.user.user);
+          setUser(storedUser.user);
           setPhoneNumbersData(storedUser.allData);
         }
       } catch (e) {
@@ -155,7 +155,7 @@ function AuthProvider({ children }) {
   }
 
   function displayError(alerts){
-    return alerts.map(alert => (<p className={alert.type}>{alert.message}</p>))
+    return alerts.map((alert, i) => (<p key={i} className={alert.type}>{alert.message}</p>))
   }
 
   async function fetchFromBackend({path, data}){
