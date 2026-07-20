@@ -144,7 +144,7 @@ async function dbCreateUser({ name, email, google_id, profile_picture, phone_num
   return result[0];
 }
 
-async function tablecreateRow(table, data) {
+async function tableCreateRow(table, data) {
   try{
     const columns = Object.keys(data).join(', ');
     const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
@@ -405,4 +405,4 @@ CREATE TABLE contacts (
     created_at TIMESTAMP DEFAULT NOW()
 ); */
 
-module.exports = {envDefs, pool, dbObj, functions: { tablecreateRow, tableGetRows, removeUser, tableUpdateRow, getUsers }}
+module.exports = {envDefs, pool, dbObj, functions: { tableCreateRow, tableGetRows, removeUser, tableUpdateRow, getUsers }}

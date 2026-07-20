@@ -20,8 +20,6 @@ export default function ComposeSMS({props}){
     const [payload, setPayload] = useState(sendSMSTo);
       const [alerts, setAlerts] = useState([])
     const defaultSMS = ["DC Group", "Hi, welcome to DC SMS Portal. Enjoy your experience!"];
-    // const [, forceUpdate] = useReducer(x => x + 1, 0);
-    
     
     useEffect(() => {
         settingData();
@@ -41,7 +39,7 @@ export default function ComposeSMS({props}){
             if(responseData.Success){
                 setSendSMSToOS = functions.temporaryStore({name: 'sms-list'}, 0);
             // console.log("Check message", setPayloadOS, setMessageOS, Object.keys(setSendSMSToOS).length);
-                if(!Object.keys(setSendSMSToOS).length > 0) navigate("/contacts");
+                if(!Object.keys(setSendSMSToOS).length > 0) navigate("/dashboard");
                 setSendSMSTo(setSendSMSToOS);
                 responseData.smsDefault.sender && senderID(responseData.smsDefault.sender);
                 responseData.smsDefault.message && setMessage(responseData.smsDefault.message);
@@ -49,8 +47,6 @@ export default function ComposeSMS({props}){
                 
                 processSlider([false, 0, 0], 0);
             }
-            // data.user.smsDefault.sender && senderID(data.user.smsDefault.sender);
-            // data.user.smsDefault.message && setMessage(data.user.smsDefault.message);
         }catch(error){
             console.log('An error happened. Saving default sms failed. ', error)
         }finally{
@@ -66,11 +62,22 @@ export default function ComposeSMS({props}){
 
         const endpointUrl = 'http://localhost:4000/api/sms/send'; // Replace with your backend URL
 
+        const regex = ["mtn", "mtngh", "mtn gh", "mtn-gh", "airteltigo", "airtel-tigo", "airtel tigo", "momo", "mobilemoney", "mobile money", "mobile-money", "vodafone", "vodafonecash", "vodafone cash", "vodafone-cash", "vodacash", "voda cash", "voda-cash", "vodacashghana", "vodafoneghana", "vodafoneghana.com", "vodafone.com", "vodafone.com.gh", "vodafone.com.gh.", "vodafone.com.gh/", "airteltigocash", "airteltigo-cash", "airteltigo cash", "airteltigocash.com", "airteltigocash.com.gh", "airteltigocash.com.gh/", "airteltigocash.com.gh.", "airteltigocash.com.gh/"];
+        let reservedKeyWords = regex.map(each_1 => {
+            let pattern = new RegExp(each_1, "i");
+            if(pattern.test(sender)) return {found: true, keyword: each_1};
+            payload.map(each_2 => {
+                if(pattern.test(each_2.message)) return {found: true, keyword: each_1};
+            });
+        });
+
         if(sender.length > 12){
         // console.log(sender.length);
             setAlerts([{from: 2, type: "caution", message: "Sorry. Sender must be less or exactly Eleven characters."}, ...alerts]);
-        }else
-            try {{
+        }else if(reservedKeyWords.found){
+            setAlerts([{from: 3, type: "caution", message: `${reservedKeyWords.keyword} is a reserved keyword and cannot be used or allowed.`}, ...alerts]);
+        }else{
+            try {
                 // console.log('Success:', sender, sender.length);
                 const response = await fetch(endpointUrl, {
                     // Set the method to POST
@@ -98,11 +105,11 @@ export default function ComposeSMS({props}){
                     setAlerts([{from: 2, type: "caution", message: `Some messages were not sent. ${result.unsentPayloads.length} unsent message(s).`}, ...alerts]);
                 }else{
                     setAlerts([{from: 2, type: "success", message: `All messages were sent successfully.`}, ...alerts]);
-                    if(functions.temporaryStore({name: 'sms-list', value: {}}), 3) navigate("/contacts");
+                    if(functions.temporaryStore({name: 'sms-list', value: {}}), 3) navigate("/dashboard");
                 }
+            } catch (error) {
+                console.error('Error:', error);
             }
-        } catch (error) {
-            console.error('Error:', error);
         }
     }
 
@@ -263,7 +270,7 @@ export default function ComposeSMS({props}){
                 console.log("This process failed. ", error);
             }
         }else{
-            if(functions.temporaryStore({name: 'sms-list', value: {}}), 3) navigate("/contacts");
+            if(functions.temporaryStore({name: 'sms-list', value: {}}), 3) navigate("/dashboard");
         }
     }
 

@@ -14,7 +14,7 @@ export function ProtectedRoute({ children }) {
   const { values: { data, functions } } = useAuth();
   // const { values } = useAuth();
 
-  // console.log(values)
+  // console.log(data)
   
   if (!data.accessToken) return <div className="p-6">Please login to access this page. <Link to="/">Login</Link></div>;
   
@@ -34,24 +34,23 @@ function AuthProvider({ children }) {
     async function refresh() {
       try {
         const storedToken = localStorage.getItem("token");
-        console.log("Stored Token..", storedToken);
-        // const storedUser = localStorage.getItem("user");
-        const response = await fetch(`http://localhost:4000/api/auth/refresh`, {
-          headers: {
-            Authorization: `Bearer ${storedToken}`,
-          },
-        });
-        let storedUser = await response.json();
-        // if (storedUser) {
-          // temporaryStore({name: 'gateway', value: {type: 0, from: 'local'}}, 0) // type: 0 signin, 1 signup. from: local/gmail/facebook etc 
-          
-          // const resPhoneNumbers = await fetch(`http://localhost:4000/api/auth/fetch-contacts?page=1&limit=10&user_id="${storedUser.user.user.user_id}"`, {  })
-          // let contacts = await resPhoneNumbers.json();
-          console.log("This one...", storedUser)
-        if(storedUser.success){ 
-          setAccessToken(storedToken)
-          setUser(storedUser.user);
-          setPhoneNumbersData(storedUser.allData);
+        if(storedToken){
+          console.log("Stored Token..", storedToken);
+          // const storedUser = localStorage.getItem("user");
+          const response = await fetch(`http://localhost:4000/api/auth/refresh`, {
+            headers: {
+              Authorization: `Bearer ${storedToken}`,
+            },
+          });
+          let storedUser = await response.json();
+            // const resPhoneNumbers = await fetch(`http://localhost:4000/api/auth/fetch-contacts?page=1&limit=10&user_id="${storedUser.user.user.user_id}"`, {  })
+            // let contacts = await resPhoneNumbers.json();
+            console.log("This one...", storedUser)
+          if(storedUser.Success){ 
+            setAccessToken(storedToken)
+            setUser(storedUser.user);
+            setPhoneNumbersData(storedUser.allData);
+          }
         }
       } catch (e) {
           console.log('refresh failed', e);
@@ -82,31 +81,23 @@ function AuthProvider({ children }) {
 
 
 
-  async function processLL(email, password) { // Local Login
-    const res = await fetch('/api/auth/login', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ email, password }), 
-      credentials: 'include' 
-    });
-    if (!res.success) throw new Error('Login failed');
-    const data = await res.json();
-    
-    localStorage.setItem('user', JSON.stringify(data.user))
-    // localStorage.setItem('user', JSON.stringify(data.user))
-    setAccessToken(data.token);
+  async function processLL(data) { // Local Login
+    // console.log("Data Entry", data);
+    localStorage.setItem('token', data.token)
+    setAccessToken(localStorage.getItem('token'));
     setUser(data.user);
+    setPhoneNumbersData(data.allData);
   }
   
   function processGL(data) { // Google Login
-    setGateway('google');
+    // setGateway('google');
     // localStorage.setItem('token', JSON.stringify(data.token))
     localStorage.setItem('token', data.token)
-    // console.log("Data Entry", localStorage.getItem('token'));
     // localStorage.setItem('user', JSON.stringify(data.user))
     // setAccessToken(JSON.parse(localStorage.getItem('token')));
     setAccessToken(localStorage.getItem('token'));
     setUser(data.user);
+    setPhoneNumbersData(data.allData);
   }
 
   async function logout() {

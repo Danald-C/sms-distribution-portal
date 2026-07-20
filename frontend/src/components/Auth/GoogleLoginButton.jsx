@@ -78,10 +78,10 @@ function GoogleLoginButton() {
 
   const handleSuccess = async (credentialResponse) => {
 
-    console.log(JSON.stringify(credentialResponse.credential))
+    console.log("Google Credential: ", JSON.stringify(credentialResponse.credential))
     
     try {
-      const response = await fetch('http://localhost:4000/api/auth/googleoauth', {
+      const response = await fetch('http://localhost:4000/api/auth/google-oauth', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -93,7 +93,7 @@ function GoogleLoginButton() {
         const data = await response.json()
         
         console.log(data)
-      if (data.success) {
+      if (data.Success) {
         functions.processGL(data);
         // console.log(functions.temporaryStore({name: 'gateway', value: {}}, 0))
         // let getGateway = functions.temporaryStore({name: 'gateway', value: {}}, 0);
@@ -106,23 +106,6 @@ function GoogleLoginButton() {
     } catch (error) {
       console.error("Google login failed:", error);
     }
-    
-    /* try {
-        const data = fetchFromBackend({path: 'api/auth/googleoauth', data: { credential: credentialResponse.credential,}});
-        
-        // console.log(functions)
-      if (data.success) {
-        functions.processGL(data);
-        // console.log(functions.temporaryStore({name: 'gateway', value: {}}, 0))
-        let getGateway = functions.temporaryStore({name: 'gateway', value: {}}, 0);
-        // navigate("/profile");
-        navigate(getGateway && getGateway.type === 1 ? "/verify-contact" : "/profile");
-      }else{
-        navigate("/");
-      }
-    } catch (error) {
-      console.error("Google login failed:", error);
-    } */
   }
 
   const handleError = () => {
@@ -138,8 +121,8 @@ export default function GoogleLoginArea(){
   return(
     <>
       {/* {loading && <div>Loading...</div>} */}
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-2xl shadow-lg">
+      <div className="">
+        <div className="">
           <GoogleLoginButton />
         </div>
       </div>

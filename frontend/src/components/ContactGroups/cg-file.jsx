@@ -49,16 +49,15 @@ export default function ContactGrouping(){
             })
             const responseData = await response.json() */
             // const responseData = await ContactGroupRequest(1, selected ? "update" : "create");
-            const responseData = await ContactGroupRequest("update");
+            const responseData = await ContactGroupRequest(Object.keys(selected).length > 0 ? "update" : "create");
 
-        // console.log(responseData);
             if(responseData.success){
                 // setStates.ContactsData({phone_number_groups: responseData.phone_number_groups, ...setStates.phoneNumbersData});
                 setPhone_number_groups(responseData.phone_number_groups)
                 /* setSelected({});
                 setName('')
                 setDescription('') */
-                processSelected(selected);
+                processSelected(Object.keys(selected).length > 0 ? selected : {id: 0}, true);
             }
             setClear(true);
             setAlerts([]);
@@ -94,6 +93,7 @@ export default function ContactGrouping(){
             bodyData = { name, description }
         }
 
+        console.log(JSON.stringify(bodyData), id, action, load, selected);
         const response = await fetch(`http://localhost:4000/api/auth/contact-grouping?id=${id}&user_id=${data.user.user_id}&action=${action}`, {
                 method: 'POST',
                 headers: {
@@ -124,8 +124,9 @@ export default function ContactGrouping(){
         }
     }
 
-    function processSelected(thisData){
-        if(selected && thisData.id == selected.id){
+    function processSelected(thisData, clear=false){
+        // console.log(thisData);
+        if(selected && thisData.id == selected.id || clear){
             setSelected({});
             setName('')
             setDescription('')
@@ -145,17 +146,17 @@ export default function ContactGrouping(){
             {alerts.length > 0 && functions.displayError(alerts)}
             {/* {console.log("Okay whats's up? ", clear)} */}
             <div>
-                <h2>Create Phone Number Group</h2>
+                <h2>Create Phone Number Groups</h2>
                 <form className="bg-white rounded-xl p-6 shadow bg-white p-6 rounded-2xl shadow-lg w-full max-w-md" onSubmit={submit}>
                     {/* <input type="text" value={clear ? '' : selected.group_name || name} onChange={e=>getValues(e, 0)} className="flex-grow p-3 border rounded mb-3" placeholder="Group Name" /> */}
-                    <input type="text" value={clear ? '' : name} onChange={e=>setName(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Group Name" />
+                    <input type="text" value={name} onChange={e=>setName(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Group Name" />
                     <textarea rows={4} value={description} onChange={e=>setDescription(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Description... Optional." />
                     <button className="px-4 py-2 bg-indigo-600 text-white rounded">{selected.group_name ? "Change" : "Create"} Group</button>
                 </form>
                 <ul>
                     {/* {data.phoneNumbersData.phone_number_groups.data.map(each => { */}
                     {!loading && phone_number_groups.data.map(each => {
-                        return (<li key={each.id}><a href='#' onClick={() => processSelected(each)}>{each.group_name}</a> | <a href='#' onClick={() => ContactGroupRequest("remove", true)}>remove</a></li>)
+                        return (<li key={each.id}><a href='#' title={each.description} onClick={() => processSelected(each)}>{each.group_name}</a> | <a href='#' onClick={() => ContactGroupRequest("remove", true)}>remove</a></li>)
                     })}
                 </ul>
             </div>

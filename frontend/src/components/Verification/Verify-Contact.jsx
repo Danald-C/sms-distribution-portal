@@ -22,7 +22,6 @@ export default function VerifyContactPage(){
             setLoading(true);
             let numberErrors = functions.validateNumber(number);
             if(numberErrors.length > 0){
-                // console.log(functions.validateNumber(number).map(alert => alert.message).join("\n"))
                 setGetAlerts(numberErrors);
                 return
             }
@@ -38,8 +37,9 @@ export default function VerifyContactPage(){
                 body: JSON.stringify({ number, otp }),
             })
             const responseData = await response.json()
+            // console.log("Verify Contact: ", responseData)
             if (responseData.status.complete){
-                navigate("/profile");
+                navigate("/dashboard");
             }else{
                 responseData.status.success && setOtpSent(true);
             }

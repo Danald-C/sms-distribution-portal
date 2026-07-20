@@ -88,12 +88,12 @@ async function revokeRefreshTokenById(id) {
   res.json({ message: 'ok', user: req.user })
 }) */
 
-router.post('/googleoauth', async (req, res)=> {
+router.post('/google-oauth', async (req, res)=> {
   try{
-    let oAuth_res = await oAuth(req, res), newUser = false; // Process Google Credential
+    let oAuth_res = await oAuth(req, res); // Process Google Credential
     
-    let userEmail = oAuth_res.user.email;
-    let userData = await db.functions.tableGetRows("users", { email: userEmail }), thisUser = userData.data[0];
+    /* let userEmail = oAuth_res.user.email;
+    let userData = await db.functions.tableGetRows("users", { email: userEmail }), thisUser = userData.data[0], newUser = false;
     // console.log(thisUser)
     if(!thisUser){
       thisUser = await db.functions.tableCreateRow("users", { name: oAuth_res.user.name, email: userEmail, google_id: oAuth_res.user.google_id, profile_picture: oAuth_res.user.picture })
@@ -104,26 +104,60 @@ router.post('/googleoauth', async (req, res)=> {
     }
     
     let user = {user_id: thisUser.id, ...oAuth_res.user}
-    // let user = {user_id: thisUser.id, smsDefault: {sender: thisUser.sender, message: thisUser.message}, ...oAuth_res.user}
-    let jwtToken = signAccessToken({user})
-    // console.log(jwtToken)
-    let returnedData = {success: oAuth_res.success, token: jwtToken, user, newUser };
+    let jwtToken = signAccessToken({user}) */
+    let authentication = await authenticateUser({ full_name: oAuth_res.user.name, email: oAuth_res.user.email, google_id: oAuth_res.user.google_id, profile_picture: oAuth_res.user.picture });
+    // let returnedData = {success: oAuth_res.success, token: jwtToken, user, newUser };
+    let returnedData = {Success: oAuth_res.success, token: authentication.jwtToken, user: authentication.user, allData: authentication.allData, newUser: authentication.newUser };
+    console.log(returnedData);
     // res.json({ oAuth_res })
     res.json(returnedData)
   }catch(error){
     console.log('oAuth_err', error)
     res.json( {error} )
   }
-  /* {
-    "success": true,
-    "user": {
-      "google_id": "101119012495069634051",
-      "email": "kwadjodanq@gmail.com",
-      "name": "Kwadjo Danq",
-      "picture": "https://lh3.googleusercontent.com/a/ACg8ocI3jePZXbaQJn_ggN__4NqriToXnJkapwDMkZ1oONVCJRaKzNfd=s96-c"
+});
+
+router.post('/usersign-oauth', async (req, res)=> {
+  try{
+    // console.log(req.body)
+    let authentication = await authenticateUser({ full_name: req.body.name, email: req.body.email, google_id: 0, profile_picture: "none" });
+    // let returnedData = {success: oAuth_res.success, token: jwtToken, user, newUser };
+    let returnedData = {Success: true, token: authentication.jwtToken, user: authentication.user, allData: authentication.allData, newUser: authentication.newUser };
+    // res.json({ oAuth_res })
+    res.json(returnedData)
+  }catch(error){
+    console.log('oAuth_err', error)
+    res.json( {Success: false, Error: `User sign authentication failed: ${error}`} );
+  }
+});
+
+async function authenticateUser(user) {
+    let userData = await db.functions.tableGetRows("users", { email: user.email }), thisUser = userData.data[0], newUser = false;
+    if(!thisUser){
+      thisUser = await db.functions.tableCreateRow("users", user);
+
+      newUser = true;
+    }else{
+      if(!thisUser.phone_verified) newUser = true;
     }
-  } */
-})
+    const [
+      phone_numbers,
+      phone_number_groups,
+      phoneNumGrpAssociations
+    ] = await Promise.all([
+      getPhoneNumbers(1, 10, thisUser.id, "phone_numbers"),
+      getPhoneNumbers(1, 10, thisUser.id, "phone_number_groups"),
+      db.functions.tableGetRows("pngroups_and_pn_association", { user_id: thisUser.id })
+    ]);
+    let otherData = {user_info: {unit_1: thisUser.unit_1, unit_2: thisUser.unit_2}, phone_numbers, phone_number_groups, phoneNumGrpAssociations}
+    // let user = {user_id: thisUser.id, ...user};
+    // let jwtToken = signAccessToken({user});
+    let thisName = user.full_name || thisUser.full_name, signThis = {...user, user_id: thisUser.id, full_name: thisName };
+      // console.log(signThis, thisName)
+    let jwtToken = signAccessToken(signThis);
+
+    return {jwtToken, user: signThis, newUser, allData: otherData};
+}
 
 // Register
 router.post('/register', async (req, res) => {
@@ -149,19 +183,18 @@ router.post('/verify-email', async (req, res) => {
 });
 
 // Verify Number
-router.post('/verify-number', async (req, res) => {
+router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => {
   try{
     // Verify Token
     const authHeader = req.headers.authorization;
-    let verified = Middlewares.getVerified(authHeader), status = {success: false, complete: false};
+    let verified = Middlewares.getVerified(authHeader), status = {success: false, complete: false}, user_id = verified.user_id;
 
     // console.log(await db.functions.removeUser("users", { id: "6d6eafe9-1778-46f0-8a77-9c99309a99f7" }))
     if(verified){
       // Process OTP
-      // if(req.body.process === 'send-otp'){
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       
-      let thisUser = await db.functions.tableGetRows("users", { id: verified.user.user_id }).data[0];
+      let returnedUser = await db.functions.tableGetRows("users", { id: user_id }), thisUser = returnedUser.data[0];
       if(thisUser){
         if(thisUser.phone_verified){
           status = {success: true, complete: true};
@@ -174,101 +207,54 @@ router.post('/verify-number', async (req, res) => {
           }
           
           // console.log(`Watch here: ${success}`, verified.user, `THIS USER: `, thisUser, req.body)
-          let thisOtp = await db.functions.tableGetRows("phone_otp", { user_id: `${thisUser.id}` }).data[0];
+          let returnedOtp = await db.functions.tableGetRows("phone_otp", { user_id: `${thisUser.id}` }), thisOtp = returnedOtp.data[0];
           // console.log(`Watch here: ${status.success}`, `Otp: ${thisOtp.otp} == ${req.body.otp}`, `Date: ${new Date(thisOtp.expires_at)} and ${new Date()}`, verified.user)
           if(!thisOtp){
-            let otpResult = await db.functions.tablecreateRow('phone_otp', { user_id: thisUser.id, otp, expires_at: expiresAt });
-
-            await preSMS_Send({ sender: "DC Soft", to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
+            await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp, expires_at: expiresAt });
+            await preSMS_Send({ to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` }, "DC Soft");
 
             status.success = true;
           }else{ // Otp exists already OR receiving it
-            /* if(thisOtp.otp === req.body.otp && new Date(thisOtp.expires_at) > new Date()){
-            // if(thisOtp && thisOtp.otp === req.body.otp){
-                // console.log(new Date(thisOtp.expires_at), new Date())
-              await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_verified: true });
-              // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: thisOtp.otp, expires_at: expiresAt });
-            }else{
-              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
-              await preSMS_Send({ sender: "DC Soft", to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
-            } */
            if(thisOtp.otp === req.body.otp){
             if(new Date(thisOtp.expires_at) > new Date()){
               await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_verified: true });
+
+              await preSMS_Send({ to: [thisUser.phone_number], message: `Welcome to DC SMS Distribution Portal, Your sign up process was successfull.. Enjoy your experience!` }, "DC Soft");
+              await req.transporter.sendMail({
+                from: process.env.EMAIL_ADDRESS,
+                to: process.env.EMAIL_ADDRESS,
+                subject: "NEW USER!!",
+                html: `
+                    <h2>A New User Joined.</h2>
+
+                    <p><b>Name:</b> ${thisUser.full_name}</p>
+                    <p><b>Email:</b> ${thisUser.email}</p>
+                    <p><b>Phone:</b> ${thisUser.phone_number}</p>
+
+                    <p>A new user with the above details joined DC SMS Distribution Portal on this date ${new Date()}.</p>
+                `
+              });
             
               status.complete = true;
             }else{
               await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
-              await preSMS_Send({ sender: "DC Soft", to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
+              await preSMS_Send({ to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` }, "DC Soft");
             }
             
             status.success = true;
            }else{
+    // console.log(thisOtp)
             status.success = false;
            }
           }
         }
       }
-        // console.log(thisUser)
-      /* }else{
-        //
-      } */
-      /* if(req.body.process === 'send-otp'){
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-        // let thisUser = await db.functions.tableGetRow("users", {"column": "phone_number", "cell": req.body.number});
-        let thisUser = await db.functions.tableGetRow("users", { phone_number: req.body.number });
-        if(!thisUser){ // The number should not exist
-          let newUser = await db.functions.tableCreateRow({ name: verified.name, email: verified.email, google_id: verified.google_id, profile_picture: verified.picture, phone_number: req.body.number })
-        // let thisUser = await db.functions.tableGetRow("users", { id: "432c5374-b713-42a0-9e30-978e1d0a7d37" });
-        // console.log(newUser)
-
-          if(newUser){
-            let expiresAt = new Date(Date.now() + 10*60*1000) // 10 minutes from now
-            // Date.now() + 5 * 60 * 1000
-
-            let otpResult = await db.functions.tablecreateRow('phone_otp', { user_id: newUser.id, otp, expires_at: expiresAt })
-
-            await preSMS_Send({ sender: "DC Soft", to: [req.body.number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
-            
-            success = true;
-          }
-        }else{
-          // Check whether number is verified = true
-          // If false, resend otp
-          // let thisUser = await db.functions.tableGetRow("users", { phone_number: req.body.number, phone_verified: true });
-
-          if(!thisUser.phone_verified){
-            await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp }); // The first item should always be the dependent column stated in the 'where column = value'
-            await preSMS_Send({ sender: "DC Soft", to: [req.body.number], message: `Your OTP is ${otp}. It expires in 10 minutes.` })
-          }
-          
-          success = true;
-        }
-      }else{
-        // Receive & verify OTP
-        // let thisUser = await db.functions.tableGetRow("users", {"column": "phone_number", "cell": req.body.number});
-        let thisUser = await db.functions.tableGetRow("users", { phone_number: req.body.number });
-        // let thisOtp = await db.functions.tableGetRow("phone_otp", {"column": "user_id", "cell": thisUser.id});
-        let thisOtp = await db.functions.tableGetRow("phone_otp", { user_id: thisUser.id });
-        
-        if(thisOtp && thisOtp.otp === req.body.otp && new Date(thisOtp.expires_at) > new Date()){
-        // if(thisOtp && thisOtp.otp === req.body.otp){
-            // console.log(new Date(thisOtp.expires_at), new Date())
-          await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_verified: true });
-          
-          success = true;
-        }
-      } */
-
-        // let someOBJ = {field1: "value1", field2: "value2", field3: "value3"};
-      // console.log(Object.keys(someOBJ).slice(0, 1)[0])
     }
 
     res.json({ status });
   }catch(err){
     console.error('verify-number error', err)
-    res.json( {err} )
+    res.json( {status: {Success: false}, Error: `verify-number error: ${err}`} )
   }
 });
 
@@ -291,9 +277,8 @@ router.post('/save-contacts', async (req, res) => {
   try{
     // console.log(req.body)
     // req.body.contacts.map(async (person) => await db.functions.tablecreateRow("phone_numbers", {user_id: req.body.user_id, phone_number: person[1], date_created: new Date(), full_name: person[0], email: person[2] ? person[2] : "" }))
-    let phone_numbers = [];
     if(req.query.action == "create"){
-      req.body.map(async (person) => await db.functions.tablecreateRow("phone_numbers", {user_id: req.query.user_id, phone_number: person.phone_number, date_created: new Date(), full_name: person.full_name, email: person.email || "" }));
+      req.body.map(async (person) => await db.functions.tableCreateRow("phone_numbers", {user_id: req.query.user_id, phone_number: person.phone_number, date_created: new Date(), full_name: person.full_name, email: person.email || "" }));
     }
     if(req.query.action == "update"){
       req.body.map(async (person) => await db.functions.tableUpdateRow("phone_numbers", {id: person.id, full_name: person.full_name, phone_number: person.phone_number, email: person.email }));
@@ -304,7 +289,7 @@ router.post('/save-contacts', async (req, res) => {
         await db.functions.removeUser("phone_numbers", { id: person.id, user_id: req.query.user_id });
       })
     }
-    phone_numbers = await getPhoneNumbers(1, 10, req.query.user_id, "phone_numbers");
+    let phone_numbers = await getPhoneNumbers(1, 10, req.query.user_id, "phone_numbers");
     // console.log(phone_numbers)
   
     res.json({ Success: true, phone_numbers });
@@ -318,7 +303,7 @@ router.post('/contact-grouping', async (req, res) => {
   try{
     // let newRecord = await db.functions.tablecreateRow("phone_number_groups", {user_id: req.body.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
     if(req.query.action == "create"){
-      await db.functions.tablecreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() });
+      await db.functions.tableCreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() });
     }
     if(req.query.action == "update"){
       await db.functions.tableUpdateRow("phone_number_groups", {id: req.query.id, group_name: req.body.name, group_description: req.body.description });
@@ -349,7 +334,7 @@ router.post('/group-processor', async (req, res) => {
       }
       if(req.query.action == "add"){
         if(!phoneNumGrpAssociations.data.some(each_2 => each_2.group_id == req.body.group.id && each_2.phone_number_id == each_1.id)){
-          phoneNumGrpAssociations.data.push(await db.functions.tablecreateRow("pngroups_and_pn_association", {group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.query.user_id }))
+          phoneNumGrpAssociations.data.push(await db.functions.tableCreateRow("pngroups_and_pn_association", {group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.query.user_id }))
         }
       }
     });
@@ -641,16 +626,17 @@ router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
     // let phoneNumbers = await getPhoneNumbers(1, 10, req.user.user.user_id, "phone_numbers");
     // let phone_number_groups = await getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups");
     
+    let user_id = req.user.user_id;
     const [
       thisUser,
       phone_numbers,
       phone_number_groups,
       phoneNumGrpAssociations
     ] = await Promise.all([
-      db.functions.tableGetRows("users", { id: req.user.user.user_id }),
-      getPhoneNumbers(1, 10, req.user.user.user_id, "phone_numbers"),
-      getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups"),
-      db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.user.user.user_id })
+      db.functions.tableGetRows("users", { id: user_id }),
+      getPhoneNumbers(1, 10, user_id, "phone_numbers"),
+      getPhoneNumbers(1, 10, user_id, "phone_number_groups"),
+      db.functions.tableGetRows("pngroups_and_pn_association", { user_id })
     ]);
 
     const date1 = new Date(thisUser.data[0].unit_1_date);
@@ -661,16 +647,17 @@ router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
     const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
 
     if(diffInDays >= 31){
-      await db.functions.tableUpdateRow("users", {id: req.user.user.user_id, unit_1: 30, unit_1_date: new Date()});
+      await db.functions.tableUpdateRow("users", {id: user_id, unit_1: 30, unit_1_date: new Date()});
     }
 
-    res.json({success: true, user: req.user.user, allData: {user_info: {unit_1: thisUser.data[0].unit_1, unit_2: thisUser.data[0].unit_2}, phone_numbers, phone_number_groups, phoneNumGrpAssociations}});
+    // console.log(req.user.user_id, req.user);
+    res.json({Success: true, user: req.user, allData: {user_info: {unit_1: thisUser.data[0].unit_1, unit_2: thisUser.data[0].unit_2}, phone_numbers, phone_number_groups, phoneNumGrpAssociations}});
   }catch(error){
-    res.json( {success: false, error: 'Unfortunately, this process failed. '+ error} );
+    res.json( {Success: false, error: 'Unfortunately, this process failed. '+ error} );
   }
 });
 
-router.post('/contact-us', async (req, res) => {
+router.post('/contact-us', Middlewares.emailTransporter, async (req, res) => {
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
@@ -681,9 +668,9 @@ router.post('/contact-us', async (req, res) => {
     });
     // console.log(transporter);
 
-    await db.functions.tablecreateRow("contact_form", {user_id: req.query.user_id, name: req.body.name, subject: req.body.subject, message: req.body.message, created_at: new Date(), company: req.body.company});
+    await db.functions.tableCreateRow("contact_form", {user_id: req.query.user_id, name: req.body.name, subject: req.body.subject, message: req.body.message, created_at: new Date(), company: req.body.company});
     let user = await db.functions.tableGetRows("users", { id: req.query.user_id });
-    await transporter.sendMail({
+    await req.transporter.sendMail({
       from: process.env.EMAIL_ADDRESS,
       to: process.env.EMAIL_ADDRESS,
       subject: req.body.subject,
@@ -697,7 +684,7 @@ router.post('/contact-us', async (req, res) => {
           <p>${req.body.message}</p>
       `
     });
-    /* await transporter.sendMail({
+    /* await req.transporter.sendMail({
       from: process.env.EMAIL_ADDRESS,
       replyTo: req.body.email,
       subject: "We've received your message",

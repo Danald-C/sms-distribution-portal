@@ -250,7 +250,8 @@ export default function GetContacts(){
     selectedOS = selectedIS;
     let thisToGroup = toGroup;
     if(action && action == "show"){
-      thisToGroup = {...thisToGroup, showAddToGroup: true, addToGroup: data.phoneNumbersData.phone_number_groups.data[0], contactsToAdd: selectedOS.multi[1][mode]};
+      let firstGroupI = (thisToGroup.activeGroup.id == data.phoneNumbersData.phone_number_groups.data[0].id) ? 1 : 0
+      thisToGroup = {...thisToGroup, showAddToGroup: true, addToGroup: data.phoneNumbersData.phone_number_groups.data[firstGroupI], contactsToAdd: selectedOS.multi[1][mode]};
       // setToGroup({...thisToGroup, showAddToGroup: true, addToGroup: data.phoneNumbersData.phone_number_groups.data[0], contactsToAdd: selectedOS.multi[1][mode]});
       selectedOS = {...selectedOS, mode};
       // setSelectedIS({...selectedOS, mode});
@@ -275,15 +276,20 @@ export default function GetContacts(){
           if(responseData.Success){
             thisToGroup.contactsToAdd.map(each_1 => {
               if(action == "add"){
-            // console.log("End here...", responseData, thisToGroup, setContactsOS, selectedOS);
-                if(!setContactsOS.groupAssociations.some(each_2 => each_2.group_id == thisToGroup.addToGroup.id && each_2.phone_number_id == each_1.id)){
+                setContactsOS.groupAssociations.map(each_2 => {
+                  console.log(`Group: ${each_2.group_id} & ${thisToGroup.addToGroup.id}`)
+                  console.log(`Number: ${each_2.phone_number_id} & ${each_1.id}`)
+                })
+                if(!setContactsOS.groupAssociations.some(each_2 => each_2.group_id === thisToGroup.addToGroup.id && each_2.phone_number_id === each_1.id)){
+            ;
                   setContactsOS.groupAssociations.push({group_id: thisToGroup.addToGroup.id, phone_number_id: each_1.id, user_id: data.user.user_id});
                 }
               }
               if(action == "remove"){
-                setContactsOS.groupAssociations = setContactsOS.groupAssociations.filter(each_2 => each_2.group_id == thisToGroup.addToGroup.id && each_2.phone_number_id !== each_1.id);
+                setContactsOS.groupAssociations.splice(setContactsOS.groupAssociations.findIndex(each_2 => each_2.group_id == thisToGroup.addToGroup.id && each_2.phone_number_id == each_1.id), 1);
               }
             });
+            // console.log("After...", setContactsOS.groupAssociations);
                 selectedOS = {...selectedOS, multi: [[false, false], [[], []]]};
             // getGroupNumbers(thisToGroup.addToGroup, setContactsOS);
             getGroupNumbers(thisToGroup.activeGroup, setContactsOS);
@@ -386,7 +392,7 @@ export default function GetContacts(){
       {/* {console.log('Look just here, ', clear)}; */}
       {alerts.length > 0 && functions.displayError(alerts)}
       <>
-        <Link to="/dashboard" className="text-blue-500 hover:underline">Back &laquo;</Link>
+        {/* <Link to="/dashboard" className="text-blue-500 hover:underline">Back &laquo;</Link> */}
 
         {/* Add new contacts */}
           <form className="bg-white rounded-xl p-6 shadow bg-white p-6 rounded-2xl shadow-lg w-full max-w-md" onSubmit={submit}>
@@ -431,7 +437,7 @@ export default function GetContacts(){
                  contacts.existing_numbers.length > 0 && contacts.existing_numbers.map((contact, index) => (
                     <li key={index} className="mr-2">
                       <input type="checkbox" checked={selectedIS.multi[1][0].some(each => each.id == contact.id)} onChange={() => processSelected(contact, 0)} />
-                      <a href='#' onClick={() => processSelected(contact, 0)}>{contact.full_name || "No Name"}: {contact.phone_number} {contact.email}</a> {toGroup.activeGroup.id == "all" && <>| <a href='#' onClick={() => processSelected(contact, 0, true)}>Remove</a></>}
+                      <a href='#' onClick={() => processSelected(contact, 0)}>{contact.full_name || "No Name"}: {contact.phone_number} {contact.email}{/*  {contact.id} */}</a> {toGroup.activeGroup.id == "all" && <>| <a href='#' onClick={() => processSelected(contact, 0, true)}>Remove</a></>}
                     </li>
                   ))
                 }
@@ -455,7 +461,7 @@ export default function GetContacts(){
             <h2 className="text-green-600">Available Groups</h2>
             <ul className="text-green-600">
               <li key={0}><a href='#' onClick={() => prepState("active-group", {group: {id: 'all'}})}>All</a></li>
-              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => <li key={i+1}><a href='#' onClick={() => prepState("active-group", {group: each})}>{each.group_name}</a></li>)}
+              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => <li key={i+1}><a href='#' onClick={() => prepState("active-group", {group: each})}>{each.group_name}{/*  {each.id} */}</a></li>)}
             </ul>
           </div>
         </>

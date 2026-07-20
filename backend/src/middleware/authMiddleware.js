@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken')
 const { Pool } = require('pg')
+const nodemailer = require("nodemailer");
 
 const { APP_JWT_SECRET, DATABASE_URL } = process.env
 const pool = new Pool({ connectionString: DATABASE_URL })
@@ -60,6 +61,7 @@ function verifyJWTMiddleware(req, res, next) {
 
         // req.user = decoded;
         req.user = getVerified(authHeader);
+  // console.log(req.user)
 
         next();
     } catch {
@@ -67,4 +69,22 @@ function verifyJWTMiddleware(req, res, next) {
     }
 }
 
-module.exports = {authMiddleware, verifyJWTMiddleware, getVerified, environmentV: {secret, duration}}
+function emailTransporter(req, res, next) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+            user: process.env.EMAIL_ADDRESS,
+            pass: process.env.EMAIL_PASSWORD
+        }
+      });
+        req.transporter = transporter;
+  // console.log(req.user)
+
+        next();
+    } catch {
+        return res.status(401).json({ message: "Email transporter not available.", });
+    }
+}
+
+module.exports = {authMiddleware, verifyJWTMiddleware, getVerified, emailTransporter, environmentV: {secret, duration}}

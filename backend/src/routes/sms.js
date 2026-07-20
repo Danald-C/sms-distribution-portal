@@ -86,7 +86,8 @@ axios(config)
 }); */
 //*******  */
 
-router.post('/send', Middlewares.verifyJWTMiddleware, async (req, res) => {
+// router.post('/send', Middlewares.verifyJWTMiddleware, async (req, res) => {
+router.post('/send', Middlewares.emailTransporter, async (req, res) => {
   try{
     /* const { sender, to, message } = req.body;
     await enqueueSms({ sender, to, message });
@@ -148,8 +149,23 @@ router.post('/send', Middlewares.verifyJWTMiddleware, async (req, res) => {
       preSMS_Send(each, req.body.sender);
     });
 
-    if(req.body.payload.length > 0){
+    if(filteredPayload.length > 0){
       // Write History here...
+      await db.functions.tableCreateRow('activity_history', { user_id: thisUser.id, type: "SMS", description: `${filteredPayload.length} sms was sent.`, date: new Date() });
+      await req.transporter.sendMail({
+        from: process.env.EMAIL_ADDRESS,
+        to: process.env.EMAIL_ADDRESS,
+        subject: "SMS SENT!!",
+        html: `
+            <h2>SMS was sent.</h2>
+
+            <p><b>Name:</b> ${thisUser.full_name}</p>
+            <p><b>Email:</b> ${thisUser.email}</p>
+            <p><b>Phone:</b> ${thisUser.phone_number}</p>
+
+            <p>The user with the above details sent <b>${filteredPayload.length}</b> sms on this date ${new Date()}.</p>
+        `
+      });
     }
     
     // res.json({ Status: 'queued', totalRecipients: req.body.payload.reduce((acc, each) => acc + each.to.length, 0), unsentPayloads });
