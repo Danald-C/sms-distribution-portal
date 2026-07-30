@@ -20,25 +20,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   # ===========================
-  # pgAdmin (Database GUI)
-  # ===========================
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: dc_sms_portal_pgadmin_client
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${EMAIL_ADDRESS}
-      PGADMIN_DEFAULT_PASSWORD: ${POSTGRES_USER}
-    ports:
-      - "5050:80"
-    depends_on:
-      - postgres
-
-  # ===========================
   # Redis (Optional)
   # ===========================
   redis:
-    image: redis:latest
+    image: redis:8
     container_name: redis
     restart: always
     ports:
@@ -48,40 +33,28 @@ services:
   # Backend API (Node.js)
   # ===========================
   backend:
-    image: danald/backend:latest
+    image: danald/backend:v1.0.0
     build:
       context: ./backend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: dc_sms_portal_backend_api
-    command: npm run devStart
     restart: always
     ports:
       - "4000:4000"
-    volumes:
-      - ./backend/src:/app/src
-      - ./backend/package.json:/app/package.json
-      - ./backend/package-lock.json:/app/package-lock.json
     environment:
       DOCKER: "true"
-      NODE_ENV: development
+      NODE_ENV: production
       DB_HOST: postgres
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB}
       DB_PORT: 5432
-      # SMS_PROVIDER_API_URL: https://sms.arkesel.com/api/v2/sms/send
-      # SMS_PROVIDER_API_KEY: OkFLYmVtaUI4MmVJM09kejI=
-      # EMAIL_ADDRESS: kwadjodanq@gmail.com
-      # EMAIL_PASSWORD: cidk rbww wkbj kvzh
-      # JWT_ACCESS_SECRET: '8b3bd619651ff1c8f1c48af4a2bcb544776e7c86eccfcd201a2eac42e8cc9b4cd1ca17373c747dec4e6248d7c99df46587afc7de8da8cc7c015b6e8158c8515c'
-      # JWT_REFRESH_SECRET: 'f74d4c4ebadb4b53697c66d536af44640d66421224d23a2bd42ea16ab614afa9b514266e4f042bcc8e06de38c75cf0fe8bd91eca6b1e403dab9beea1877eb532'
       SMS_PROVIDER_API_URL: ${SMS_PROVIDER_API_URL}
       SMS_PROVIDER_API_KEY: ${SMS_PROVIDER_API_KEY}
       EMAIL_ADDRESS: ${EMAIL_ADDRESS}
       EMAIL_PASSWORD: ${EMAIL_PASSWORD}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      # JWT_SECRET_EXPIRES: 15m
       JWT_SECRET_EXPIRES: 3d
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -90,39 +63,22 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    
-  sms-worker:
-    image: danald/backend:latest
-    working_dir: /app
-    environment:
-      DB_HOST: postgres
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      DB_NAME: ${POSTGRES_DB}
-      DB_PORT: 5432
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    depends_on:
-      - redis
   
   # ===========================
   # Frontend (React → Nginx)
   # ===========================
   frontend:
-    image: danald/frontend:latest
+    image: danald/frontend:v1.0.0
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      # dockerfile: Dockerfile.dev
       args:
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
     container_name: dc_sms_portal_frontend_app
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     restart: always
     ports:
-      # - "3000:80"
-      - "3000:5173"
+      - "3000:80"
     depends_on:
       - backend
 

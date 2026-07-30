@@ -145,6 +145,14 @@ function AuthProvider({ children }) {
     // return displayError(allAlerts);
   }
 
+  const validateEmail = (email) => {
+    return String(email)
+      .toLowerCase()
+      .match(
+        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+      );
+  };
+
   function displayError(alerts){
     return alerts.map((alert, i) => (<p key={i} className={alert.type}>{alert.message}</p>))
   }
@@ -198,6 +206,7 @@ function AuthProvider({ children }) {
     signup,
     temporaryStore,
     validateNumber,
+    validateEmail,
     displayElements,
     fetchFromBackend,
     displayError

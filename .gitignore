@@ -11,8 +11,11 @@ yarn-error.log*
 # Environment variables
 # ================================
 .env
+.env.production
 .env.*    # .env.development, .env.production, etc.
 .env.local
+docker-compose.yml
+UI_REQUIREMENTS.md
 
 # ================================
 # React build (frontend)

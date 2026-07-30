@@ -50,7 +50,7 @@ app.use('/api/payments', paymentsRoutes)
 
 app.use(cors());
 // mount APIs
-app.get('/health', (req,res)=>res.json({ ok: true }));
+app.get('/health', (req,res)=>res.status(200).json({ ok: true }));
 
 const PORT = process.env.PORT || 4000; // 8080
 app.listen(PORT, () => console.log('Backend listening on', PORT))
