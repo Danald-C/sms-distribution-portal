@@ -33,7 +33,7 @@ services:
   # Backend API (Node.js)
   # ===========================
   backend:
-    image: danald/backend:v1.0.0
+    image: danald/backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -68,7 +68,7 @@ services:
   # Frontend (React → Nginx)
   # ===========================
   frontend:
-    image: danald/frontend:v1.0.0
+    image: danald/frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile

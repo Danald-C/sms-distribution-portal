@@ -57,6 +57,8 @@ redis_data/
 # ================================
 # CDK (AWS Cloud Development Kit)
 # ================================
+
+clouddevkit/
 cdk.out/
 clouddevkit/cdk/cdk.out/
 
