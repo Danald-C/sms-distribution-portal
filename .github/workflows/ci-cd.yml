@@ -28,7 +28,6 @@ jobs:
           context: ./frontend
           push: true
           tags: danald/frontend:latest
-          # tags: danald/frontend:v1.0.0
 
       # BACKEND
       - name: Build & push backend image
@@ -43,7 +42,6 @@ jobs:
           context: ./backend
           push: true
           tags: danald/backend:latest
-          # tags: danald/backend:v1.0.0
 
       # CDK (OPTIONAL)
       # - name: CDK Deploy
