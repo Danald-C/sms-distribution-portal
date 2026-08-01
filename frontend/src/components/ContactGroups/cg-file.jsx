@@ -94,7 +94,8 @@ export default function ContactGrouping(){
         }
 
         console.log(JSON.stringify(bodyData), id, action, load, selected);
-        const response = await fetch(`http://localhost:4000/api/auth/contact-grouping?id=${id}&user_id=${data.user.user_id}&action=${action}`, {
+        // const response = await fetch(`http://localhost:4000/api/auth/contact-grouping?id=${id}&user_id=${data.user.user_id}&action=${action}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/contact-grouping?id=${id}&user_id=${data.user.user_id}&action=${action}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

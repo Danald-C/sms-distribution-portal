@@ -75,6 +75,7 @@ services:
       # dockerfile: Dockerfile.dev
       args:
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+        VITE_API_URL: ${VITE_API_URL}
     container_name: dc_sms_portal_frontend_app
     restart: always
     ports:

@@ -260,9 +260,9 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
 
 router.post('/remove-record', async (req, res) => {
   try{
+    console.log("Removing record: ", req.body)
     req.body.map(async (each) => {
       await db.functions.removeUser(each.table, each.clause);
-      // console.log(await db.functions.removeUser("users", { id: "6d6eafe9-1778-46f0-8a77-9c99309a99f7" }))
     })
   
     res.json({ status: "Success" });

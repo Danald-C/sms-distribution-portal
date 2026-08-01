@@ -130,7 +130,8 @@ export default function GetContacts(){
             if(selectedIS.multi[1][mode].length > 0) setAlerts([{from: 2, type: "caution", message: "Numbers taken already cannot be taken again."}, ...alerts]);
     // console.log("Numbers taken already cannot be taken again.");
           }
-          const response = await fetch(`http://localhost:4000/api/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
+          // const response = await fetch(`http://localhost:4000/api/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
@@ -263,7 +264,8 @@ export default function GetContacts(){
         try{
           setLoading(true)
           
-          const response = await fetch(`http://localhost:4000/api/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
+          // const response = await fetch(`http://localhost:4000/api/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',

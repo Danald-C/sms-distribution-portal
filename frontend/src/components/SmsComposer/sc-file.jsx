@@ -28,7 +28,8 @@ export default function ComposeSMS({props}){
     
     async function settingData(){
         try{
-            const response = await fetch(`http://localhost:4000/api/auth/sms-default?action=get`, {
+            // const response = await fetch(`http://localhost:4000/api/auth/sms-default?action=get`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/sms-default?action=get`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${data.accessToken}`
@@ -60,7 +61,7 @@ export default function ComposeSMS({props}){
         
         const getNumbers = data.phoneNumbersData.phone_numbers.data.map(contact => contact.phone_number);
 
-        const endpointUrl = 'http://localhost:4000/api/sms/send'; // Replace with your backend URL
+        const endpointUrl = `${import.meta.env.VITE_API_URL}/sms/send`; // Replace with your backend URL
 
         const regex = ["mtn", "mtngh", "mtn gh", "mtn-gh", "airteltigo", "airtel-tigo", "airtel tigo", "momo", "mobilemoney", "mobile money", "mobile-money", "vodafone", "vodafonecash", "vodafone cash", "vodafone-cash", "vodacash", "voda cash", "voda-cash", "vodacashghana", "vodafoneghana", "vodafoneghana.com", "vodafone.com", "vodafone.com.gh", "vodafone.com.gh.", "vodafone.com.gh/", "airteltigocash", "airteltigo-cash", "airteltigo cash", "airteltigocash.com", "airteltigocash.com.gh", "airteltigocash.com.gh/", "airteltigocash.com.gh.", "airteltigocash.com.gh/"];
         let reservedKeyWords = regex.map(each_1 => {
@@ -251,7 +252,8 @@ export default function ComposeSMS({props}){
         if(proceed){
             try{
                 // const response = await fetch(`http://localhost:4000/api/auth/sms-default?user_id=${data.user.user_id}`, {
-                const response = await fetch(`http://localhost:4000/api/auth/sms-default?action=update`, {
+                // const response = await fetch(`http://localhost:4000/api/auth/sms-default?action=update`, {
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/sms-default?action=update`, {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${data.accessToken}`,

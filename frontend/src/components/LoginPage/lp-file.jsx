@@ -27,7 +27,8 @@ export default function LoginPage() {
     
       setLoading(true);
         console.log("Login Page", JSON.stringify({name: null, email}));
-      const response = await fetch('http://localhost:4000/api/auth/usersign-oauth', {
+      // const response = await fetch('http://localhost:4000/api/auth/usersign-oauth', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/usersign-oauth`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

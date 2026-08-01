@@ -198,14 +198,21 @@ async function tableUpdateRow(table, dataObj) {
 async function removeUser(table, data) {
   let getKeys = Object.keys(data), getValues = Object.values(data);
   try{
-    if (getKeys.length === 0 || getValues.length === 0) return null
-    // console.log('Pruning revoked tokens older than 90 days...');
+    // if (getKeys.length === 0 || getValues.length === 0) return null
     // await pool.query("DELETE FROM refresh_tokens WHERE revoked = true AND revoked_at < now() - interval '90 days'");
-    let query = `DELETE FROM ${table} WHERE `;
-    getKeys.map((column, i) => {
-      query += `${column} = '${getValues[i]}'`;
-      query += i < getKeys.length-1 ? ` AND ` : ``;
-    });
+    // let query = `DELETE FROM ${table} WHERE `;
+    let query = ``;
+    if(getKeys.length > 0){
+      query += `DELETE FROM ${table} WHERE `;
+      getKeys.map((column, i) => {
+        query += `${column} = '${getValues[i]}'`;
+        query += i < getKeys.length-1 ? ` AND ` : ``;
+      });
+    }else{
+      // console.log('Pruning revoked tokens older than 90 days...');
+      query += `TRUNCATE TABLE ${table} CASCADE RESTART IDENTITY`;
+      // query += `TRUNCATE TABLE ${table} RESTART IDENTITY`;
+    }
     // await pool.query(`DELETE FROM ${table} WHERE ${column} = '${cell}'`);
     await pool.query(query);
     // console.log('Done pruning.');

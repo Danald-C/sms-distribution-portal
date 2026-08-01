@@ -26,7 +26,14 @@
   "scripts": {
     "start": "node src/server.js",
     "devStart": "nodemon --legacy-watch src/server.js",
-    "worker": "node src/worker/sms-worker.js"
+    "worker": "node src/worker/sms-worker.js",
+    "migrate": "node-pg-migrate up",
+    "migrate:down": "node-pg-migrate down",
+    "migrate:create": "node-pg-migrate create",
+    "seed": "...",
+    "backup": "...",
+    "restore": "...",
+    "health": "..."
   },
   "keywords": [],
   "author": "",
@@ -34,6 +41,7 @@
   "description": "",
   "devDependencies": {
     "dotenv": "^17.2.3",
+    "node-pg-migrate": "^9.0.0",
     "nodemon": "^3.1.11"
   }
 }
