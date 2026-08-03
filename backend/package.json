@@ -28,13 +28,14 @@
     "devStart": "nodemon --legacy-watch src/server.js",
     "worker": "node src/worker/sms-worker.js",
     
-    "migrate": "node-pg-migrate up --config-file node-pg-migrate.config.js",
-    "migrate:down": "node-pg-migrate down --config-file node-pg-migrate.config.js",
-    "migrate:create": "node-pg-migrate create --config-file node-pg-migrate.config.js",
-    "seed": "...",
-    "backup": "...",
-    "restore": "...",
-    "health": "..."
+    "db:migrate": "node-pg-migrate up --config-file node-pg-migrate.config.js",
+    "db:migrate:down": "node-pg-migrate down --config-file node-pg-migrate.config.js",
+    "db:migrate:create": "node-pg-migrate create --config-file node-pg-migrate.config.js",
+    "db:seed": "...",
+    "db:verify": "node database/scripts/verify-schema.js",
+    "db:backup": "bash database/scripts/backup.sh",
+    "db:restore": "...",
+    "db:health": "..."
   },
   "keywords": [],
   "author": "",

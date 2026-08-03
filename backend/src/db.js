@@ -258,6 +258,18 @@ async function dbValidateRefreshToken(user_id, refreshTokenPlain) {
   // await pool.end();
 // run().catch(e=>{ console.error(e); process.exit(1); });
 
+  async function testDatabaseConnection() {
+      const client = await pool.connect();
+
+      try {
+          await client.query("SELECT NOW()");
+          console.log("✅ PostgreSQL connected");
+      } finally {
+          client.release();
+      }
+  }
+
+
 async function getUsers(page=1, limit=10){
 
   const offset = (page - 1) * limit;
@@ -416,4 +428,5 @@ CREATE TABLE contacts (
     created_at TIMESTAMP DEFAULT NOW()
 ); */
 
-module.exports = {envDefs, pool, dbObj, functions: { tableCreateRow, tableGetRows, removeUser, tableUpdateRow, getUsers }}
+      
+module.exports = {envDefs, pool, dbObj, functions: { testDatabaseConnection, tableCreateRow, tableGetRows, removeUser, tableUpdateRow, getUsers }}

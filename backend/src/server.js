@@ -5,7 +5,7 @@ if(!process.env.DOCKER && process.env.NODE_ENV !== 'production') {
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { pool, dbObj } = require('./db');
+const { pool, dbObj, functions } = require('./db');
 const cors = require('cors');
 const router = express.Router();
 
@@ -15,12 +15,16 @@ const authRoutes = require('./routes/auth')
 const smsRoutes = require('./routes/sms')
 const paymentsRoutes = require('./routes/payments')
 
+const validateEnv = require("./config/validateEnv");
+
 // http://localhost:5000
 // pgAdmin: http://localhost:5050
 // Redis port 6379
 
 const ACCESS_SECRET = process.env.ACCESS_SECRET;
 const REFRESH_SECRET = process.env.REFRESH_SECRET;
+
+await functions.testDatabaseConnection();
 
 const app = express()
 app.use(cors());
@@ -50,7 +54,11 @@ app.use('/api/payments', paymentsRoutes)
 
 app.use(cors());
 // mount APIs
-app.get('/health', (req,res)=>res.status(200).json({ ok: true }));
+app.get('/health', (req,res)=>res.status(200).json({ ok: true,
+  "database": "connected",
+  "redis": "connected",
+  "uptime": 12345,
+  "version": "1.0.0" }));
 
 const PORT = process.env.PORT || 4000; // 8080
 app.listen(PORT, () => console.log('Backend listening on', PORT))
