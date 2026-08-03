@@ -2,6 +2,10 @@ const { Pool } = require('pg')
 const admin = require('firebase-admin')
 // const { tryCatch } = require('bullmq')
 
+// DOCKER DB DUMP COMMAND:  docker exec -t dbname pg_dump -U dbuser --schema-only dbname > schema.sql
+// docker exec -t dbname pg_dump \ -U dbuser \ --schema-only \ dbname > database_v1.sql
+
+
 
 const {
   DB_USER,
