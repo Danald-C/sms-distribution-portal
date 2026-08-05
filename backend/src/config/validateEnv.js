@@ -4,7 +4,7 @@ const required = [
     "DB_NAME",
     "DB_USER",
     "DB_PASSWORD",
-    "JWT_SECRET",
+    "JWT_ACCESS_SECRET",
     "REDIS_HOST"
 ];
 
