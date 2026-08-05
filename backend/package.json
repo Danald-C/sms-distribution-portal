@@ -16,6 +16,7 @@
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.2.0",
     "multer": "^2.0.2",
+    "node-pg-migrate": "^9.0.0",
     "nodemailer": "^7.0.12",
     "pg": "^8.16.3",
     "uuid": "^13.0.0"
@@ -27,7 +28,6 @@
     "start": "node src/server.js",
     "devStart": "nodemon --legacy-watch src/server.js",
     "worker": "node src/worker/sms-worker.js",
-    
     "db:migrate": "node-pg-migrate up --config-file node-pg-migrate.config.js",
     "db:migrate:down": "node-pg-migrate down --config-file node-pg-migrate.config.js",
     "db:migrate:create": "node-pg-migrate create --config-file node-pg-migrate.config.js",
@@ -43,7 +43,6 @@
   "description": "",
   "devDependencies": {
     "dotenv": "^17.2.3",
-    "node-pg-migrate": "^9.0.0",
     "nodemon": "^3.1.11"
   }
 }

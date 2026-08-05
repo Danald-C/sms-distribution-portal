@@ -24,9 +24,20 @@ const validateEnv = require("./config/validateEnv");
 const ACCESS_SECRET = process.env.ACCESS_SECRET;
 const REFRESH_SECRET = process.env.REFRESH_SECRET;
 
-await functions.testDatabaseConnection();
+async function startServer() {
+    await functions.testDatabaseConnection();
 
-const app = express()
+    const app = express();
+
+    // Keep ALL your existing middleware,
+    // routes, listen(), etc. inside this function.
+
+    // Example:
+    // app.use(cors());
+    // app.use(bodyParser.json());
+    // ...
+    // app.listen(PORT, () => console.log(...));
+
 app.use(cors());
 app.use(cookieParser())
 app.use(bodyParser.json())
@@ -62,3 +73,9 @@ app.get('/health', (req,res)=>res.status(200).json({ ok: true,
 
 const PORT = process.env.PORT || 4000; // 8080
 app.listen(PORT, () => console.log('Backend listening on', PORT))
+}
+
+startServer().catch(err => {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+});

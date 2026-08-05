@@ -11,9 +11,9 @@ RUN npm ci --omit=dev
 # RUN npm install
 
 # Copy all backend source code
-# COPY . .
+COPY . .
 # Copy only necessary source
-COPY src ./src
+# COPY src ./src
 
 # Expose your backend port (change if your app uses something else)
 EXPOSE 4000
