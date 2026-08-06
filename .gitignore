@@ -53,6 +53,7 @@ redis_data/
 /.docker/
 /docker/volumes/
 /docker-compose.override.yml
+docker-compose.yml
 
 # ================================
 # CDK (AWS Cloud Development Kit)

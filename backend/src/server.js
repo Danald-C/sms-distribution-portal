@@ -24,8 +24,8 @@ const validateEnv = require("./config/validateEnv");
 // pgAdmin: http://localhost:5050
 // Redis port 6379
 
-const ACCESS_SECRET = process.env.ACCESS_SECRET;
-const REFRESH_SECRET = process.env.REFRESH_SECRET;
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
 async function startServer() {
     await functions.testDatabaseConnection();
