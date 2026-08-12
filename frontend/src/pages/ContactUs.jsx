@@ -17,7 +17,8 @@ export default function ContactUsForm(){
         if(email == "" || message == ""){
             setAlerts([{from: 1, type: "caution", message: "Please check the form. Some required fields (email or message) were left empty."}, ...alerts])
         }else{
-            const response = await fetch(`http://localhost:4000/api/auth/contact-us?user_id=${data.user.user_id}`, {
+            // const response = await fetch(`http://localhost:4000/api/auth/contact-us?user_id=${data.user.user_id}`, {
+            const response = await fetch(`${data.API_URL}/auth/contact-us?user_id=${data.user.user_id}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

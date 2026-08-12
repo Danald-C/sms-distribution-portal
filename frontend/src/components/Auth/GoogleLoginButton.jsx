@@ -53,8 +53,8 @@ export function FirebaseAuthWatcher({ onUserChanged }) {
           body: JSON.stringify({ idToken }),
           credentials: 'include'
         });
-        const data = await res.json();
-        onUserChanged(data.user, data.accessToken);
+        const returnedData = await res.json();
+        onUserChanged(returnedData.user, returnedData.accessToken);
       }
     });
   }, [onUserChanged]);
@@ -73,7 +73,7 @@ export function FirebaseAuthWatcher({ onUserChanged }) {
 
 function GoogleLoginButton() {
   // const { googleLogin } = useAuth();
-  const { values: { functions } } = useAuth();
+  const { values: { data, functions } } = useAuth();
   const navigate = useNavigate();
 
   const handleSuccess = async (credentialResponse) => {
@@ -81,7 +81,8 @@ function GoogleLoginButton() {
     console.log("Google Credential: ", JSON.stringify(credentialResponse.credential))
     
     try {
-      const response = await fetch('http://localhost:4000/api/auth/google-oauth', {
+      // const response = await fetch('http://localhost:4000/api/auth/google-oauth', {
+      const response = await fetch(`${data.API_URL}/auth/google-oauth`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -90,16 +91,16 @@ function GoogleLoginButton() {
             credential: credentialResponse.credential,
           }),
         })
-        const data = await response.json()
+        const returnedData = await response.json()
         
-        console.log(data)
-      if (data.Success) {
-        functions.processGL(data);
+        console.log(returnedData)
+      if (returnedData.Success) {
+        functions.processGL(returnedData);
         // console.log(functions.temporaryStore({name: 'gateway', value: {}}, 0))
         // let getGateway = functions.temporaryStore({name: 'gateway', value: {}}, 0);
         // navigate("/profile");
         // navigate(getGateway && getGateway.type === 1 || data.newUser ? "/verify-contact" : "/profile");
-        navigate(data.newUser ? "/verify-contact" : "/dashboard");
+        navigate(returnedData.newUser ? "/verify-contact" : "/dashboard");
       }else{
         navigate("/");
       }

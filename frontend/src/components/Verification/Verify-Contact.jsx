@@ -27,7 +27,8 @@ export default function VerifyContactPage(){
             }
 
             // console.log(data.accessToken)
-            let response = await fetch('http://localhost:4000/api/auth/verify-number', {
+            // let response = await fetch('http://localhost:4000/api/auth/verify-number', {
+            let response = await fetch(`${data.API_URL}/auth/verify-number`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${data.accessToken}`,
@@ -49,34 +50,6 @@ export default function VerifyContactPage(){
             setLoading(false);
         }
     }
-
-    /* const verifyOtp = async () => {
-        try {
-            setLoading(true);
-
-            // const response = await axios.post("http://localhost:4000/api/auth/verify-number", { process: 'receive-otp', number, otp, });
-            let response = fetch('http://localhost:4000/api/auth/verify-number', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${data.accessToken}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ process: 'receive-otp', number, otp, }),
-            })
-
-            console.log(await response.json())
-            const returnedData = await response
-            // if (returnedData.ok){
-            //     temporaryStore({name: 'gateway', value: {}}, 3) // Remove it 
-            //     setVerified(true);
-            //     navigate("/profile");
-            // }
-        } catch (err) {
-            console.error(err.message || 'Verification failed');
-        } finally {
-            setLoading(false);
-        }
-    }; */
 
     return (
         <>

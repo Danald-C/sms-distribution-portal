@@ -5,7 +5,7 @@ import GoogleLoginArea from "../Auth/GoogleLoginButton.jsx";
 
 
 export default function SignupPage() {
-  const { values: { functions, setStates } } = useAuth();
+  const { values: { data, functions, setStates } } = useAuth();
   const navigate = useNavigate();
   const [payload, setPayload] = useState({ name: '', email: '' });
   
@@ -21,19 +21,20 @@ export default function SignupPage() {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:4000/api/auth/usersign-oauth', {
+      // const response = await fetch('http://localhost:4000/api/auth/usersign-oauth', {
+      const response = await fetch(`${data.API_URL}/auth/usersign-oauth`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(payload),
         })
-        const data = await response.json()
+        const returnedData = await response.json()
         
-        console.log(data);
-      if (data.Success) {
-        functions.processLL(data);
-        navigate(data.newUser ? "/verify-contact" : "/dashboard");
+        console.log(returnedData);
+      if (returnedData.Success) {
+        functions.processLL(returnedData);
+        navigate(returnedData.newUser ? "/verify-contact" : "/dashboard");
       }else{
         navigate("/");
       }

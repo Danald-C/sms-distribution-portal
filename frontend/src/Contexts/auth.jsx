@@ -23,6 +23,7 @@ export function ProtectedRoute({ children }) {
 }
 
 function AuthProvider({ children }) {
+  const [API_URL, setAPI_URL] = useState(import.meta.env.VITE_API_URL || "http://localhost:4000");
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -158,7 +159,7 @@ function AuthProvider({ children }) {
   }
 
   async function fetchFromBackend({path, data}){
-    const response = await fetch(`http://localhost:4000/${path}`, {
+    const response = await fetch(`${API_URL}/${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -195,6 +196,7 @@ function AuthProvider({ children }) {
   }
 
   let values = {data: {
+    API_URL,
     user,
     accessToken,
     loading,
