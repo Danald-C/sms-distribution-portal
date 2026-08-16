@@ -120,7 +120,8 @@ router.post('/google-oauth', async (req, res)=> {
 router.post('/usersign-oauth', async (req, res)=> {
   try{
     // console.log(req.body)
-    let authentication = await authenticateUser({ full_name: req.body.name, email: req.body.email, google_id: 0, profile_picture: "none" });
+    // let authentication = await authenticateUser({ full_name: req.body.name, email: req.body.email, google_id: 0, profile_picture: "none" });
+    let authentication = await authenticateUser({ full_name: req.body.name, email: req.body.email, google_id: 'gid_0', profile_picture: "none" });
     // let returnedData = {success: oAuth_res.success, token: jwtToken, user, newUser };
     let returnedData = {Success: true, token: authentication.jwtToken, user: authentication.user, allData: authentication.allData, newUser: authentication.newUser };
     // res.json({ oAuth_res })
