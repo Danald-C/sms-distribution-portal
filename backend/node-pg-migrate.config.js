@@ -28,6 +28,6 @@ module.exports = {
     },
 
     "migrations-dir": "./database/migrations",
-    "migrations-table": "schema_migrations",
+    "migrations-table": "pgmigrations",
     "migration-file-language": "sql"
 };
