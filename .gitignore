@@ -85,5 +85,8 @@ desktop.ini
 *.dump
 *.backup
 *.rdb
+!backend/database/
+!backend/database/migrations/
+!backend/database/migrations/*.sql
 
 snippets.yaml
