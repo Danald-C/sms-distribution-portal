@@ -38,7 +38,7 @@ function AuthProvider({ children }) {
         if(storedToken){
           console.log("Stored Token..", storedToken);
           // const storedUser = localStorage.getItem("user");
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/refresh`, {
+          const response = await fetch(`${API_URL}/auth/refresh`, {
             headers: {
               Authorization: `Bearer ${storedToken}`,
             },

@@ -7,7 +7,6 @@ import GoogleLoginArea from "../Auth/GoogleLoginButton.jsx";
 // 1056104116569-om836dd1557e22cesib082764h73f0bd.apps.googleusercontent.com
 // 1056104116569-b426g26lcqi99n98bd0cucivbif7r3rb.apps.googleusercontent.com
 
-
 export default function LoginPage() {
   // const { localLogin } = useAuth();
   const { values: { functions, setStates } } = useAuth();
@@ -19,6 +18,7 @@ export default function LoginPage() {
   async function submit(e) {
     e.preventDefault();
 
+    console.log("Email: ", JSON.stringify({name: null, email}), import.meta.env.VITE_API_URL);
     try {
       if(!functions.validateEmail(email)){
         setAlerts([{from: 1, type: "caution", message: "Invalid email."}, ...alerts]);
@@ -26,7 +26,6 @@ export default function LoginPage() {
       }
     
       setLoading(true);
-        console.log("Login Page", JSON.stringify({name: null, email}));
       // const response = await fetch('http://localhost:4000/api/auth/usersign-oauth', {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/usersign-oauth`, {
           method: 'POST',
@@ -52,6 +51,8 @@ export default function LoginPage() {
   }
 
   return (
+    <>
+        {/* {console.log("Login Page")} */}
     <div className="login-page min-h-screen w-full bg-gradient-to-br from-slate-50 via-blue-50/40 to-emerald-50/50 flex items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
       {alerts.length > 0 && functions.displayError(alerts)}
       <div className="w-full max-w-md space-y-6 sm:space-y-8">
@@ -82,7 +83,7 @@ export default function LoginPage() {
             className="space-y-5 p-6 sm:p-8"
           >
             <div>
-              <h2 className="text-xl font-semibold text-slate-800">Welcome back</h2>
+              <h2 className="text-xl font-semibold text-slate-800">Welcome back enjoy the experience</h2>
               <p className="mt-1 text-sm text-slate-500">Enter your email to continue</p>
             </div>
 
@@ -140,5 +141,6 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+    </>
   )
 }
