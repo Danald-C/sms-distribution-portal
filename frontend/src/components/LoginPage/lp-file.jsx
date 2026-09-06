@@ -18,7 +18,7 @@ export default function LoginPage() {
   async function submit(e) {
     e.preventDefault();
 
-    console.log("Email: ", JSON.stringify({name: null, email}), import.meta.env.VITE_API_URL);
+    // console.log("Email: ", JSON.stringify({name: null, email}), import.meta.env.VITE_API_URL);
     try {
       if(!functions.validateEmail(email)){
         setAlerts([{from: 1, type: "caution", message: "Invalid email."}, ...alerts]);
