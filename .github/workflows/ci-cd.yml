@@ -1,7 +1,7 @@
 ```yaml
 name: CI/CD
 
-on:
+"on":
   push:
     branches:
       - main
@@ -28,11 +28,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Use the Git commit SHA as the immutable deployment version.
       - name: Set image tag
         run: echo "IMAGE_TAG=${GITHUB_SHA}" >> "$GITHUB_ENV"
 
-      # Frontend
       - name: Build & push frontend image
         uses: docker/build-push-action@v5
         with:
@@ -45,7 +43,6 @@ jobs:
             VITE_API_URL=/api
             VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
-      # Backend
       - name: Build & push backend image
         uses: docker/build-push-action@v5
         with:
