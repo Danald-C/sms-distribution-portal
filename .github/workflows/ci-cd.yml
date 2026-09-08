@@ -27,11 +27,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Use the Git commit SHA as the immutable deployment version.
       - name: Set image tag
         run: echo "IMAGE_TAG=${GITHUB_SHA}" >> "$GITHUB_ENV"
 
-      # Frontend
       - name: Build & push frontend image
         uses: docker/build-push-action@v5
         with:
@@ -44,7 +42,6 @@ jobs:
             VITE_API_URL=/api
             VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
-      # Backend
       - name: Build & push backend image
         uses: docker/build-push-action@v5
         with:
@@ -53,3 +50,107 @@ jobs:
           tags: |
             danald/backend:${{ env.IMAGE_TAG }}
             danald/backend:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            PROJECT_DIR="/home/ubuntu/dc-sms-distribution-portal"
+            BACKUP_DIR="/home/ubuntu/backups"
+            IMAGE_TAG="${{ github.sha }}"
+            export IMAGE_TAG
+
+            cd "$PROJECT_DIR"
+
+            echo "========================================"
+            echo "Starting deployment"
+            echo "Image tag: $IMAGE_TAG"
+            echo "========================================"
+
+            echo "Checking Docker Compose configuration..."
+            docker compose --env-file .env \
+              -f docker-compose.prod.yml config -q
+
+            echo "Creating database backup..."
+            mkdir -p "$BACKUP_DIR"
+
+            BACKUP_FILE="$BACKUP_DIR/dc_sms_portal_${IMAGE_TAG}.sql"
+
+            DB_USER="$(docker exec dc_sms_portal_db printenv POSTGRES_USER)"
+            DB_NAME="$(docker exec dc_sms_portal_db printenv POSTGRES_DB)"
+
+            docker exec dc_sms_portal_db \
+              pg_dump -U "$DB_USER" -d "$DB_NAME" \
+              > "$BACKUP_FILE"
+
+            test -s "$BACKUP_FILE"
+
+            echo "Database backup created successfully: $BACKUP_FILE"
+
+            echo "Pulling application images..."
+            docker compose --env-file .env \
+              -f docker-compose.prod.yml \
+              pull backend sms-worker frontend
+
+            echo "Running database migrations..."
+            docker compose --env-file .env \
+              -f docker-compose.prod.yml \
+              run --rm backend npm run db:migrate
+
+            echo "Deploying application containers..."
+            docker compose --env-file .env \
+              -f docker-compose.prod.yml \
+              up -d --no-build backend sms-worker frontend
+
+            echo "Waiting for backend health..."
+            for i in $(seq 1 30); do
+              if curl -fsS http://localhost:4000/health >/dev/null 2>&1; then
+                echo "Backend health check passed."
+                break
+              fi
+
+              if [ "$i" -eq 30 ]; then
+                echo "Backend health check failed."
+                exit 1
+              fi
+
+              sleep 2
+            done
+
+            echo "Checking Redis..."
+            test "$(docker exec redis redis-cli ping)" = "PONG"
+
+            echo "Checking PostgreSQL..."
+            test "$(docker inspect dc_sms_portal_db --format '{{.State.Health.Status}}')" = "healthy"
+
+            echo "Checking public HTTPS health..."
+            curl -fsS https://www.dcsmsportal.com/health >/dev/null
+            echo "Checking public frontend..."
+            curl -fsSL https://www.dcsmsportal.com/ >/dev/null
+
+            echo "Checking deployed images..."
+            test "$(docker inspect dc_sms_portal_backend_api --format '{{.Config.Image}}')" = "danald/backend:${IMAGE_TAG}"
+            test "$(docker inspect dc_sms_portal_sms_worker --format '{{.Config.Image}}')" = "danald/backend:${IMAGE_TAG}"
+            test "$(docker inspect dc_sms_portal_frontend_app --format '{{.Config.Image}}')" = "danald/frontend:${IMAGE_TAG}"
+
+            echo "========================================"
+            echo "DEPLOYMENT SUCCESSFUL"
+            echo "Image tag: $IMAGE_TAG"
+            echo "========================================"
+            if grep -q '^IMAGE_TAG=' .env; then
+              sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env
+            else
+              printf '\nIMAGE_TAG=%s\n' "$IMAGE_TAG" >> .env
+            fi
+            echo "Production IMAGE_TAG updated to: $IMAGE_TAG"
