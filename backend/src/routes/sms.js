@@ -8,7 +8,7 @@ const csvParse = require('csv-parse');
 const db = require("../db.js"); // your DB connection
 const Middlewares = require('../middleware/authMiddleware');
 const { connectionRedis } = require('../lib/redisClient');
-const { processWorker } = require('../worker/sms-worker');
+// const { processWorker } = require('../worker/sms-worker');
 
 const { Queue } = require('bullmq');
 
@@ -146,8 +146,8 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
 
     // preSMS_Send(req.body);
     // req.body.payload.map(each => {
-    filteredPayload.map(each => {
-      preSMS_Send(each, req.body.sender);
+    filteredPayload.map(async each => {
+      await preSMS_Send(each, req.body.sender);
     });
 
     if(filteredPayload.length > 0){
@@ -177,13 +177,20 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
   }
 });
 
-// async function preSMS_Send(body) {
 async function preSMS_Send(body, sender) {
-  // const { sender, to, message } = body;
+  const { to, message } = body;
+
+  await enqueueSms({
+    sender,
+    to,
+    message
+  });
+}
+/* async function preSMS_Send(body, sender) {
   const { to, message } = body;
   await enqueueSms({ sender, to, message });
   await processWorker(); // start the worker to process SMS jobs
-}
+} */
 
 /* async function sendPostRequest() {
   try {
