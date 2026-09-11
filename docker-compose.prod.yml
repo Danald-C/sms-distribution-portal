@@ -71,6 +71,9 @@ services:
     image: danald/backend:latest
     working_dir: /app
     command: npm run worker
+    restart: always
+    healthcheck:
+      disable: true
     environment:
       DB_HOST: postgres
       DB_USER: ${POSTGRES_USER}
