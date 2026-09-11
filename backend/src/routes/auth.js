@@ -349,13 +349,13 @@ router.post('/group-processor', async (req, res) => {
 });
 
 router.post('/sms-default', Middlewares.verifyJWTMiddleware, async (req, res) => {
+  // console.log("Are we reaching here?", req.user);
   try{
-    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user.user_id });
+    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user_id });
     thisUser = thisUser.data[0];
     if(req.query.action == "update"){
-      thisUser = await db.functions.tableUpdateRow("users", {id: req.user.user.user_id, sender: req.body.sender, message: req.body.message });
+      thisUser = await db.functions.tableUpdateRow("users", {id: req.user.user_id, sender: req.body.sender, message: req.body.message });
     }
-      console.log(req.user.user, req.body, thisUser);
 
     res.json({ Success: true, smsDefault: {sender: thisUser.sender, message: thisUser.message}});
   }catch(error){
@@ -648,7 +648,7 @@ router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
     const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
 
     if(diffInDays >= 31){
-      await db.functions.tableUpdateRow("users", {id: user_id, unit_1: 30, unit_1_date: new Date()});
+      await db.functions.tableUpdateRow("users", {id: user_id, unit_1: 30, unit_1_created_at: new Date()});
     }
 
     // console.log(req.user.user_id, req.user);

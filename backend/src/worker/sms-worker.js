@@ -17,7 +17,7 @@ const processWorker = async () => {
 }
 
 async function sendSmsViaProvider(sender, to, message) {
-  console.log(`📨 Sending SMS to ${to}: ${message}`);
+  console.log(`📨 Sending SMS to ${to}: ${message}. From: ${sender}`);
     const data = {
       // "sender": sender,
       sender,

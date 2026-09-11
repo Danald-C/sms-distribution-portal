@@ -10,16 +10,16 @@ export default function ComposeSMS({props}){
     const navigate = useNavigate();
     let setSendSMSToOS = [];
     const [sendSMSTo, setSendSMSTo] = useState('');
-    const [sender, senderID] = useState('');
+    const defaultSMS = ["DC Group", "Hi, welcome to DC SMS Portal. Enjoy your experience!"];
+    const [sender, senderID] = useState(defaultSMS[0]);
     // const [message, setMessage] = useState('');
     let setMessageOS = '';
-    const [message, setMessage] = useState('');
+    const [message, setMessage] = useState(defaultSMS[1]);
     // const [slider, setSlider] = useState({controls: false, rangePos: [[1, 1], false], spaceAfter: false});
     const [slider, setSlider] = useState({controls: [false, 0], rangePos: [[1, 1], false], spaceAfter: false});
     let setPayloadOS = sendSMSTo;
     const [payload, setPayload] = useState(sendSMSTo);
       const [alerts, setAlerts] = useState([])
-    const defaultSMS = ["DC Group", "Hi, welcome to DC SMS Portal. Enjoy your experience!"];
     
     useEffect(() => {
         settingData();
@@ -28,6 +28,7 @@ export default function ComposeSMS({props}){
     
     async function settingData(){
         try{
+                // console.log("Check message", `${import.meta.env.VITE_API_URL}/auth/sms-default?action=get`);
             // const response = await fetch(`http://localhost:4000/api/auth/sms-default?action=get`, {
             const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/sms-default?action=get`, {
                 method: 'POST',
@@ -39,8 +40,8 @@ export default function ComposeSMS({props}){
             
             if(responseData.Success){
                 setSendSMSToOS = functions.temporaryStore({name: 'sms-list'}, 0);
-            // console.log("Check message", setPayloadOS, setMessageOS, Object.keys(setSendSMSToOS).length);
                 if(!Object.keys(setSendSMSToOS).length > 0) navigate("/dashboard");
+
                 setSendSMSTo(setSendSMSToOS);
                 responseData.smsDefault.sender && senderID(responseData.smsDefault.sender);
                 responseData.smsDefault.message && setMessage(responseData.smsDefault.message);
@@ -79,7 +80,6 @@ export default function ComposeSMS({props}){
             setAlerts([{from: 3, type: "caution", message: `${reservedKeyWords.keyword} is a reserved keyword and cannot be used or allowed.`}, ...alerts]);
         }else{
             try {
-                // console.log('Success:', sender, sender.length);
                 const response = await fetch(endpointUrl, {
                     // Set the method to POST
                     method: 'POST',
@@ -97,8 +97,9 @@ export default function ComposeSMS({props}){
                 });
 
                 const result = await response.json();
+                console.log('Success:', result);
 
-                if (!result.ok) {
+                if (!result.Success) {
                     throw new Error(`HTTP error! status: ${response.Status}`);
                 }
 
@@ -215,6 +216,7 @@ export default function ComposeSMS({props}){
                 newPayload.map((each, index) => {
                     let splitMsg = each.message.split(" ").filter(word => word !== ""); // Remove empty strings
                     
+                console.log("Set it here ", get_names[index]);
                     if(get_names[index] != ''){
                         if(newSlider.spaceAfter){
                             splitMsg.splice(target[0], 0, get_names[index]) // Inject name
@@ -224,11 +226,9 @@ export default function ComposeSMS({props}){
                         newPayload[index].message = splitMsg.join(" ");
                     }
                 });
-                // console.log("Set it here ", newPayload);
 
                 if(newSlider.controls[0] && newSlider.controls[1] == 0) newSlider = {...newSlider, controls: [true, 1]};
             }else{
-                // console.log("Check message here:", setSendSMSToOS);
                 const getNumbers = setSendSMSToOS.map(contact => contact.phone_number);
                 newPayload.push({
                     "message": setMessageOS,
@@ -237,12 +237,14 @@ export default function ComposeSMS({props}){
             }
             setPayloadOS = newPayload;
             setPayload(setPayloadOS);
+                // console.log("Check message here:", setPayloadOS);
             setSlider({...newSlider, rangePos: [[Number(target[0]), newSlider.rangePos[0][1]], newSlider.rangePos[1]]});
             // splitMsg.splice(target, 0, "Lemon");
         }
     }
 
     function changeMessage(e, index){
+        console.log("Check here..", e.target);
         !slider.controls[0] && setMessage(e.target.value);
         payload[index] = {...payload[index], message: e.target.value};
         setPayload([...payload]);
@@ -279,7 +281,7 @@ export default function ComposeSMS({props}){
 
     return(
         <>
-      {alerts.length > 0 && functions.displayError(alerts)}
+            {alerts.length > 0 && functions.displayError(alerts)}
             <h2>Sending SMS to {sendSMSTo.length} Contacts..</h2>
             <form className="bg-white rounded-xl p-6 shadow" onSubmit={handleSendSMS}>
                 <>

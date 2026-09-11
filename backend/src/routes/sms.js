@@ -87,13 +87,14 @@ axios(config)
 //*******  */
 
 // router.post('/send', Middlewares.verifyJWTMiddleware, async (req, res) => {
-router.post('/send', Middlewares.emailTransporter, async (req, res) => {
+router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddleware, async (req, res) => {
   try{
     /* const { sender, to, message } = req.body;
     await enqueueSms({ sender, to, message });
     await processWorker(); */ // start the worker to process SMS jobs
     
-    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user.user_id }), unit_1 = Number(thisUser.data[0].unit_1), unit_2 = Number(thisUser.data[0].unit_2), remainder = 0;
+    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user_id }), unit_1 = Number(thisUser.data[0].unit_1), unit_2 = Number(thisUser.data[0].unit_2), remainder = 0;
+  // console.log(thisUser);
     // req.body.payload.map(each => Math.max(1, Math.ceil(each.message.length / 160))).reduce((acc, val) => acc + val, 0);
 
     req.body.payload.map(each => remainder += each.to.length);
@@ -105,7 +106,7 @@ router.post('/send', Middlewares.emailTransporter, async (req, res) => {
         unit_1 -= remainder;
         remainder = 0
       }
-      await db.functions.tableUpdateRow("users", {id: req.user.user.user_id, unit_1 });
+      await db.functions.tableUpdateRow("users", {id: req.user.user_id, unit_1 });
     }
 
     if(remainder > 0 && unit_2 != 0){
@@ -117,14 +118,14 @@ router.post('/send', Middlewares.emailTransporter, async (req, res) => {
         remainder -= unit_2;
         unit_2 = 0;
       }
-      await db.functions.tableUpdateRow("users", {id: req.user.user.user_id, unit_2 });
+      await db.functions.tableUpdateRow("users", {id: req.user.user_id, unit_2 });
     }
 
+  let filteredPayload = [], unsentPayloads = [];
   if(remainder > 0){
     // req.body.payload = req.body.payload.slice(-remainder, req.body.payload.length); // Truncate the message list
     // let totalRecipients = req.body.payload.reduce((acc, each) => acc + each.to.length, 0);
     // let excessRecipients = totalRecipients - remainder;
-    let filteredPayload = [], unsentPayloads = [];
     req.body.payload.map(each => {
       // each.to = each.to.slice(-remainder, each.to.length);
       if(remainder >= each.to.length){
@@ -151,7 +152,7 @@ router.post('/send', Middlewares.emailTransporter, async (req, res) => {
 
     if(filteredPayload.length > 0){
       // Write History here...
-      await db.functions.tableCreateRow('activity_history', { user_id: thisUser.id, type: "SMS", description: `${filteredPayload.length} sms was sent.`, date: new Date() });
+      await db.functions.tableCreateRow('activity_history', { user_id: thisUser.data[0].id, type: "SMS", description: `${filteredPayload.length} sms was sent.`, created_at: new Date() });
       await req.transporter.sendMail({
         from: process.env.EMAIL_ADDRESS,
         to: process.env.EMAIL_ADDRESS,
@@ -169,10 +170,10 @@ router.post('/send', Middlewares.emailTransporter, async (req, res) => {
     }
     
     // res.json({ Status: 'queued', totalRecipients: req.body.payload.reduce((acc, each) => acc + each.to.length, 0), unsentPayloads });
-    res.json({ Status: 'queued', unsentPayloads });
+    res.json({ Success: true, Status: 'queued', unsentPayloads });
   }catch(err){
     console.error('Error in /send route:', err);
-    return res.status(500).json({ error: 'Server error' });
+    return res.status(500).json({ Success: false, error: 'Server error' });
   }
 });
 

@@ -28,7 +28,8 @@ export default function GetContacts(){
   let selectedOS = {single: {}, multi: [[false, false], [[], []]], mode: 0};
   const [selectedIS, setSelectedIS] = useState(selectedOS);
   const [sendSMSTo, setSendSMSTo] = useState([]);
-  const [toGroup, setToGroup] = useState({showAddToGroup: false, activeGroup: {id: "all"}, addToGroup: {}, contactsToAdd: sendSMSTo});
+  // const [toGroup, setToGroup] = useState({showAddToGroup: false, activeGroup: {id: "all"}, addToGroup: {}, contactsToAdd: sendSMSTo});
+  const [toGroup, setToGroup] = useState({showAddToGroup: false, activeGroup: {id: "all"}, addToGroup: {}, contactsToAdd: []});
   // const [phone, setPhone] = useState("");
   // const units = Math.ceil(message.length/160)||
 
@@ -228,7 +229,6 @@ export default function GetContacts(){
   }
 
   function removeMulti(mode){
-    // console.log("End here...", setContactsOS, contacts);
     setContactsOS = contacts;
     selectedOS = {...selectedIS, mode: 0, single: {}};
     selectedOS.multi[0][mode] = false;
@@ -242,7 +242,8 @@ export default function GetContacts(){
 
   function prepareSMS(mode){
     let baseContacts = [contacts.existing_numbers, contacts.new_numbers], finalContacts = selectedIS.multi[1][mode].length > 0 ? selectedIS.multi[1][mode] : baseContacts[mode];
-    setSendSMSTo(finalContacts);
+    // console.log("Prep SMS here...", finalContacts);
+    // setSendSMSTo(finalContacts);
     if(functions.temporaryStore({name: 'sms-list', value: finalContacts})) navigate("/send-sms");
   }
 
