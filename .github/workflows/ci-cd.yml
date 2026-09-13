@@ -56,6 +56,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Copy production Compose file to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker-compose.prod.yml"
+          target: "/home/ubuntu/dc-sms-distribution-portal/"
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -81,6 +93,17 @@ jobs:
             echo "Checking Docker Compose configuration..."
             docker compose --env-file .env \
               -f docker-compose.prod.yml config -q
+            
+            echo "Checking production Compose configuration..."
+
+            if docker compose --env-file .env \
+              -f docker-compose.prod.yml config |
+              grep -q '/backend/src:/app/src'; then
+              echo "ERROR: Production Compose contains a backend source-code mount."
+              exit 1
+            fi
+
+            echo "Production Compose configuration looks correct."
 
             echo "Creating database backup..."
             mkdir -p "$BACKUP_DIR"
@@ -136,21 +159,39 @@ jobs:
 
             echo "Checking public HTTPS health..."
             curl -fsS https://www.dcsmsportal.com/health >/dev/null
+
             echo "Checking public frontend..."
             curl -fsSL https://www.dcsmsportal.com/ >/dev/null
+
+            echo "Checking deployed containers..."
+            docker inspect dc_sms_portal_backend_api >/dev/null
+            docker inspect dc_sms_portal_sms_worker >/dev/null
+
+            echo "Checking SMS worker status..."
+            test "$(docker inspect dc_sms_portal_sms_worker --format '{{.State.Status}}')" = "running"
+            echo "SMS worker is running."
+
+            echo "Checking SMS worker logs..."
+            docker logs --tail 30 dc_sms_portal_sms_worker
+
+            docker inspect dc_sms_portal_frontend_app >/dev/null
 
             echo "Checking deployed images..."
             test "$(docker inspect dc_sms_portal_backend_api --format '{{.Config.Image}}')" = "danald/backend:${IMAGE_TAG}"
             test "$(docker inspect dc_sms_portal_sms_worker --format '{{.Config.Image}}')" = "danald/backend:${IMAGE_TAG}"
             test "$(docker inspect dc_sms_portal_frontend_app --format '{{.Config.Image}}')" = "danald/frontend:${IMAGE_TAG}"
 
+            echo "Checking backend has no source mounts..."
+            test "$(docker inspect dc_sms_portal_backend_api --format '{{json .Mounts}}')" = "[]"
+
             echo "========================================"
             echo "DEPLOYMENT SUCCESSFUL"
             echo "Image tag: $IMAGE_TAG"
             echo "========================================"
-            if grep -q '^IMAGE_TAG=' .env; then
-              sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env
-            else
-              printf '\nIMAGE_TAG=%s\n' "$IMAGE_TAG" >> .env
-            fi
-            echo "Production IMAGE_TAG updated to: $IMAGE_TAG"
+
+            echo "Updating production IMAGE_TAG..."
+
+            sed -i '/^IMAGE_TAG=/d' .env
+            printf '\nIMAGE_TAG=%s\n' "$IMAGE_TAG" >> .env
+
+            echo "Production IMAGE_TAG updated successfully."

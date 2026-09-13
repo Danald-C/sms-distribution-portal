@@ -1,12 +1,11 @@
 services:
-  # ===========================
-  # PostgreSQL Database
-  # ===========================
+
   postgres:
     image: postgres:15
     container_name: dc_sms_portal_db
+    restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dcadmin -d dc_sms_portal_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -14,36 +13,20 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # ===========================
-  # Redis (Optional)
-  # ===========================
   redis:
     image: redis:8
     container_name: redis
     restart: always
-    ports:
-      - "6379:6379"
 
-  # ===========================
-  # Backend API (Node.js)
-  # ===========================
   backend:
-    image: danald/backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: danald/backend:${IMAGE_TAG:-latest}
     container_name: dc_sms_portal_backend_api
     restart: always
     ports:
       - "4000:4000"
-    volumes:
-      - ./backend/src:/app/src
-      - /app/node_modules
     environment:
       DOCKER: "true"
       NODE_ENV: production
@@ -66,15 +49,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-  
+
   sms-worker:
-    image: danald/backend:latest
+    image: danald/backend:${IMAGE_TAG:-latest}
+    container_name: dc_sms_portal_sms_worker
     working_dir: /app
     command: npm run worker
     restart: always
     healthcheck:
       disable: true
     environment:
+      NODE_ENV: production
       DB_HOST: postgres
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
@@ -89,24 +74,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-  
-  # ===========================
-  # Frontend (React → Nginx)
-  # ===========================
+
   frontend:
-    image: danald/frontend:latest
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
-        VITE_API_URL: ${VITE_API_URL}
+    image: danald/frontend:${IMAGE_TAG:-latest}
     container_name: dc_sms_portal_frontend_app
     restart: always
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_started
 
 volumes:
   postgres_data:
