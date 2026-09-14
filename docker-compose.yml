@@ -107,8 +107,12 @@ services:
     # depends_on:
     #   - redis
     image: danald/backend:latest
+    container_name: dc_sms_portal_sms_worker
     working_dir: /app
     command: npm run worker
+    restart: always
+    healthcheck:
+      disable: true
     environment:
       DB_HOST: postgres
       DB_USER: ${POSTGRES_USER}

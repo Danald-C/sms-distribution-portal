@@ -160,9 +160,9 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
         html: `
             <h2>SMS was sent.</h2>
 
-            <p><b>Name:</b> ${thisUser.full_name}</p>
-            <p><b>Email:</b> ${thisUser.email}</p>
-            <p><b>Phone:</b> ${thisUser.phone_number}</p>
+            <p><b>Name:</b> ${thisUser.data[0].full_name}</p>
+            <p><b>Email:</b> ${thisUser.data[0].email}</p>
+            <p><b>Phone:</b> ${thisUser.data[0].phone_number}</p>
 
             <p>The user with the above details sent <b>${filteredPayload.length}</b> sms on this date ${new Date()}.</p>
         `

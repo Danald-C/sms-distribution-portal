@@ -93,7 +93,7 @@ export default function GetContacts(){
       setNumber('')
       setName('')
       setEmail('')
-      setClear(true)
+      // setClear(true)
       // setLoading(true)
     }
     // form.append('message',message)
@@ -280,8 +280,8 @@ export default function GetContacts(){
             thisToGroup.contactsToAdd.map(each_1 => {
               if(action == "add"){
                 setContactsOS.groupAssociations.map(each_2 => {
-                  console.log(`Group: ${each_2.group_id} & ${thisToGroup.addToGroup.id}`)
-                  console.log(`Number: ${each_2.phone_number_id} & ${each_1.id}`)
+                  // console.log(`Group: ${each_2.group_id} & ${thisToGroup.addToGroup.id}`)
+                  // console.log(`Number: ${each_2.phone_number_id} & ${each_1.id}`)
                 })
                 if(!setContactsOS.groupAssociations.some(each_2 => each_2.group_id === thisToGroup.addToGroup.id && each_2.phone_number_id === each_1.id)){
             ;
@@ -392,7 +392,7 @@ export default function GetContacts(){
     <>
       {/* <ContactInput /> */}
       {/* <div className="min-h-screen flex items-center justify-center bg-gray-100"> */}
-      {/* {console.log('Look just here, ', clear)}; */}
+      {/* {console.log('Look just here, ', clear)} */}
       {alerts.length > 0 && functions.displayError(alerts)}
       <>
         {/* <Link to="/dashboard" className="text-blue-500 hover:underline">Back &laquo;</Link> */}
@@ -402,8 +402,10 @@ export default function GetContacts(){
             <h2 className="text-lg font-semibold mb-2">Provide the Contact number.</h2>
             <div className="flex items-center gap-3">
               <PhoneInput international defaultCountry="GH" value={number} onChange={setNumber} className="border p-3 rounded-lg" autoFocus={true} />
-              <input type="text" value={clear ? '' : name} onChange={e=>setName(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Name (optional)" />
-              <input type="text" value={clear ? '' : email} onChange={e=>setEmail(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Email (optional)" />
+              {/* <input type="text" value={clear ? '' : name} onChange={e=>setName(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Name (optional)" /> */}
+              <input type="text" value={name} onChange={e=>setName(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Name (optional)" />
+              {/* <input type="text" value={clear ? '' : email} onChange={e=>setEmail(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Email (optional)" /> */}
+              <input type="text" value={email} onChange={e=>setEmail(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Email (optional)" />
             </div>
             <div className="flex items-center gap-3">
               {/* <input type="file" accept=".csv" onChange={e=>setFile(e.target.files[0])} /> */}

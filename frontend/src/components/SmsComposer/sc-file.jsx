@@ -8,6 +8,7 @@ export default function ComposeSMS({props}){
     // const { sendSMSTo, sentState } = props;
     const { values: { data, functions, setStates } } = useAuth();
     const navigate = useNavigate();
+
     let setSendSMSToOS = [];
     const [sendSMSTo, setSendSMSTo] = useState('');
     const defaultSMS = ["DC Group", "Hi, welcome to DC SMS Portal. Enjoy your experience!"];
@@ -20,6 +21,7 @@ export default function ComposeSMS({props}){
     let setPayloadOS = sendSMSTo;
     const [payload, setPayload] = useState(sendSMSTo);
       const [alerts, setAlerts] = useState([])
+      const [sending, setSending] = useState(false)
     
     useEffect(() => {
         settingData();
@@ -79,7 +81,10 @@ export default function ComposeSMS({props}){
         }else if(reservedKeyWords.found){
             setAlerts([{from: 3, type: "caution", message: `${reservedKeyWords.keyword} is a reserved keyword and cannot be used or allowed.`}, ...alerts]);
         }else{
+            setSending(true);
+
             try {
+                // console.log('Success: ', data.accessToken);
                 const response = await fetch(endpointUrl, {
                     // Set the method to POST
                     method: 'POST',
@@ -97,13 +102,14 @@ export default function ComposeSMS({props}){
                 });
 
                 const result = await response.json();
-                console.log('Success:', result);
 
                 if (!result.Success) {
                     throw new Error(`HTTP error! status: ${response.Status}`);
                 }
 
                 if(result.unsentPayloads && result.unsentPayloads.length > 0){
+                    setSending(false);
+                    setPayload(result.unsentPayloads);
                     setAlerts([{from: 2, type: "caution", message: `Some messages were not sent. ${result.unsentPayloads.length} unsent message(s).`}, ...alerts]);
                 }else{
                     setAlerts([{from: 2, type: "success", message: `All messages were sent successfully.`}, ...alerts]);
@@ -216,7 +222,7 @@ export default function ComposeSMS({props}){
                 newPayload.map((each, index) => {
                     let splitMsg = each.message.split(" ").filter(word => word !== ""); // Remove empty strings
                     
-                console.log("Set it here ", get_names[index]);
+                // console.log("Set it here ", get_names[index]);
                     if(get_names[index] != ''){
                         if(newSlider.spaceAfter){
                             splitMsg.splice(target[0], 0, get_names[index]) // Inject name
@@ -244,7 +250,7 @@ export default function ComposeSMS({props}){
     }
 
     function changeMessage(e, index){
-        console.log("Check here..", e.target);
+        // console.log("Check here..", e.target);
         !slider.controls[0] && setMessage(e.target.value);
         payload[index] = {...payload[index], message: e.target.value};
         setPayload([...payload]);
@@ -295,7 +301,7 @@ export default function ComposeSMS({props}){
                 </div>
                 {!slider.rangePos[1] && <><textarea rows={4} value={message} onChange={e => changeMessage(e, 0)} className="flex-grow p-3 border rounded mb-3" placeholder="Enter your message here..." />
                 <a href='#' onClick={() => saveDefault()}>Save</a>
-                <button className="px-4 py-2 bg-indigo-600 text-white rounded">Send SMS</button></>}
+                <button className="px-4 py-2 bg-indigo-600 text-white rounded">{sending ? 'Sending...' : 'Send SMS'}</button></>}
             </form>
 
             <form className="bg-white rounded-xl p-6 shadow" onSubmit={handleSendSMS}>
@@ -310,7 +316,7 @@ export default function ComposeSMS({props}){
                                 <textarea key={index} value={eachMess.message} onChange={e => changeMessage(e, index)} />
                             ))
                         }
-                        {slider.rangePos[1] && <button className="px-4 py-2 bg-indigo-600 text-white rounded">Send SMS</button>}
+                        {slider.rangePos[1] && <button className="px-4 py-2 bg-indigo-600 text-white rounded">{sending ? 'Sending...' : 'Send SMS'}</button>}
                     </>
                 }
             </form>

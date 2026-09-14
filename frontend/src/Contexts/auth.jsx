@@ -36,7 +36,7 @@ function AuthProvider({ children }) {
       try {
         const storedToken = localStorage.getItem("token");
         if(storedToken){
-          console.log("Stored Token..", storedToken);
+          // console.log("Stored Token..", storedToken);
           // const storedUser = localStorage.getItem("user");
           const response = await fetch(`${API_URL}/auth/refresh`, {
             headers: {
@@ -46,7 +46,7 @@ function AuthProvider({ children }) {
           let storedUser = await response.json();
             // const resPhoneNumbers = await fetch(`http://localhost:4000/api/auth/fetch-contacts?page=1&limit=10&user_id="${storedUser.user.user.user_id}"`, {  })
             // let contacts = await resPhoneNumbers.json();
-            console.log("This one...", storedUser)
+            // console.log("This one...", storedUser)
           if(storedUser.Success){ 
             setAccessToken(storedToken)
             setUser(storedUser.user);
