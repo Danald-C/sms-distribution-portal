@@ -18,6 +18,8 @@ const { redis, REUSE_WINDOW_SEC } = require('../lib/redisClient');
 // const { sendReuseAlert } = require('../lib/email');
 const tokenStore = require('../lib/tokenStore');
 
+const defaultUnit = 30;
+
 
 
 function signAccessToken(user) {
@@ -135,7 +137,8 @@ router.post('/usersign-oauth', async (req, res)=> {
 async function authenticateUser(user) {
     let userData = await db.functions.tableGetRows("users", { email: user.email }), thisUser = userData.data[0], newUser = false;
     if(!thisUser){
-      thisUser = await db.functions.tableCreateRow("users", user);
+      // thisUser = await db.functions.tableCreateRow("users", user);
+      thisUser = await db.functions.tableCreateRow("users", {...user, unit_1: defaultUnit, unit_1_created_at: new Date()});
 
       newUser = true;
     }else{
@@ -279,7 +282,7 @@ router.post('/save-contacts', async (req, res) => {
     // console.log(req.body)
     // req.body.contacts.map(async (person) => await db.functions.tablecreateRow("phone_numbers", {user_id: req.body.user_id, phone_number: person[1], date_created: new Date(), full_name: person[0], email: person[2] ? person[2] : "" }))
     if(req.query.action == "create"){
-      req.body.map(async (person) => await db.functions.tableCreateRow("phone_numbers", {user_id: req.query.user_id, phone_number: person.phone_number, date_created: new Date(), full_name: person.full_name, email: person.email || "" }));
+      req.body.map(async (person) => await db.functions.tableCreateRow("phone_numbers", {user_id: req.query.user_id, phone_number: person.phone_number, created_at: new Date(), full_name: person.full_name, email: person.email || "" }));
     }
     if(req.query.action == "update"){
       req.body.map(async (person) => await db.functions.tableUpdateRow("phone_numbers", {id: person.id, full_name: person.full_name, phone_number: person.phone_number, email: person.email }));
@@ -304,7 +307,8 @@ router.post('/contact-grouping', async (req, res) => {
   try{
     // let newRecord = await db.functions.tablecreateRow("phone_number_groups", {user_id: req.body.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
     if(req.query.action == "create"){
-      await db.functions.tableCreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() });
+      // await db.functions.tableCreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() });
+      await db.functions.tableCreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, created_at: new Date() });
     }
     if(req.query.action == "update"){
       await db.functions.tableUpdateRow("phone_number_groups", {id: req.query.id, group_name: req.body.name, group_description: req.body.description });
@@ -376,7 +380,7 @@ router.post('/fetch-contacts', async (req, res) => {
 
 async function getPhoneNumbers(page=1, limit=10, user_id, table){
   try{
-    let results = await db.functions.tableGetRows(table, { user_id }, {orderBy: "id", desc: "DESC", page, limit});
+    let results = await db.functions.tableGetRows(table, { user_id }, {orderBy: "id", desc: "ASC", page, limit});
     // let result = await db.functions.getUsers(page, limit);
     // console.log(results)
 
@@ -648,7 +652,7 @@ router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
     const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
 
     if(diffInDays >= 31){
-      await db.functions.tableUpdateRow("users", {id: user_id, unit_1: 30, unit_1_created_at: new Date()});
+      await db.functions.tableUpdateRow("users", {id: user_id, unit_1: defaultUnit, unit_1_created_at: new Date()});
     }
 
     // console.log(req.user.user_id, req.user);

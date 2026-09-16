@@ -26,7 +26,8 @@ function AuthProvider({ children }) {
   const [API_URL, setAPI_URL] = useState(import.meta.env.VITE_API_URL || "http://localhost:4000");
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadContent, setLoadContent] = useState(false);
   const [gateway, setGateway] = useState({type: 0, from: 'local'}); // '0 = signin' or '1 = signup'
   const [phoneNumbersData, setPhoneNumbersData] = useState([]);
 
@@ -44,9 +45,9 @@ function AuthProvider({ children }) {
             },
           });
           let storedUser = await response.json();
-            // const resPhoneNumbers = await fetch(`http://localhost:4000/api/auth/fetch-contacts?page=1&limit=10&user_id="${storedUser.user.user.user_id}"`, {  })
-            // let contacts = await resPhoneNumbers.json();
-            // console.log("This one...", storedUser)
+          // const resPhoneNumbers = await fetch(`http://localhost:4000/api/auth/fetch-contacts?page=1&limit=10&user_id="${storedUser.user.user.user_id}"`, {  })
+          // let contacts = await resPhoneNumbers.json();
+          // console.log("This one...", storedUser)
           if(storedUser.Success){ 
             setAccessToken(storedToken)
             setUser(storedUser.user);
@@ -200,6 +201,7 @@ function AuthProvider({ children }) {
     user,
     accessToken,
     loading,
+    loadContent,
     phoneNumbersData
   }, functions: {
     processLL,
@@ -211,7 +213,9 @@ function AuthProvider({ children }) {
     validateEmail,
     displayElements,
     fetchFromBackend,
-    displayError
+    displayError,
+    setLoadContent,
+    setPhoneNumbersData
   }}
 
   

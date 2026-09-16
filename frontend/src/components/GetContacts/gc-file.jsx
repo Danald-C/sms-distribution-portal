@@ -46,11 +46,28 @@ export default function GetContacts(){
 
     
     async function settingData(){
+      // console.log('Wait, are you the one? ', data.loadContent)
       try{
-        // console.log('Wait, are you the one? ', selectedIS)
-        if(data.phoneNumbersData.phone_numbers.data){
-            setContacts({...contacts, existing_numbers: data.phoneNumbersData.phone_numbers.data, all_numbers: data.phoneNumbersData.phone_numbers.data, groupAssociations: data.phoneNumbersData.phoneNumGrpAssociations.data});
+        let thisContent = {...contacts};
+        if(data.loadContent){
+          const response = await fetch(`${data.API_URL}/auth/refresh`, {
+            headers: {
+              Authorization: `Bearer ${data.accessToken}`,
+            },
+          });
+          const returnedResponse = await response.json();
+
+          if(returnedResponse.Success){
+            functions.setPhoneNumbersData(returnedResponse.allData);
+            thisContent = {...thisContent, existing_numbers: returnedResponse.allData.phone_numbers.data, all_numbers: returnedResponse.allData.phone_numbers.data, groupAssociations: returnedResponse.allData.phoneNumGrpAssociations.data}
           }
+        }else{
+          if(data.phoneNumbersData.phone_numbers.data){
+            thisContent = {...thisContent, existing_numbers: data.phoneNumbersData.phone_numbers.data, all_numbers: data.phoneNumbersData.phone_numbers.data, groupAssociations: data.phoneNumbersData.phoneNumGrpAssociations.data}
+          }
+        }
+            // setContacts({...contacts, existing_numbers: data.phoneNumbersData.phone_numbers.data, all_numbers: data.phoneNumbersData.phone_numbers.data, groupAssociations: data.phoneNumbersData.phoneNumGrpAssociations.data});
+            setContacts(thisContent);
         }catch(error){
           //
         }finally{
@@ -125,12 +142,12 @@ export default function GetContacts(){
           setLoading(true)
           
           if(action == "create"){
-            contact = contact.filter(each_1 => !setContactsOS.all_numbers.some(each_2 => each_1.phone_number == each_2.phone_number));
-            setContactsOS.new_numbers = setContactsOS.new_numbers.filter(each_1 => !contact.some(each_2 => each_1.phone_number == each_2.phone_number));
+            contact = contact.filter(each_1 => !setContactsOS.all_numbers.some(each_2 => each_1.phone_number == each_2.phone_number)); // Make sure no duplicates or already does not exist
+            setContactsOS.new_numbers = setContactsOS.new_numbers.filter(each_1 => !contact.some(each_2 => each_1.phone_number == each_2.phone_number)); // Make sure incoming new contacts not already collected or does not exist in the new collections list
             selectedIS.multi[1][mode] = setContactsOS.new_numbers;
             if(selectedIS.multi[1][mode].length > 0) setAlerts([{from: 2, type: "caution", message: "Numbers taken already cannot be taken again."}, ...alerts]);
-    // console.log("Numbers taken already cannot be taken again.");
           }
+    console.log("Numbers taken already cannot be taken again.", JSON.stringify(contact));
           // const response = await fetch(`http://localhost:4000/api/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
           const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
               method: 'POST',
@@ -290,6 +307,10 @@ export default function GetContacts(){
               }
               if(action == "remove"){
                 setContactsOS.groupAssociations.splice(setContactsOS.groupAssociations.findIndex(each_2 => each_2.group_id == thisToGroup.addToGroup.id && each_2.phone_number_id == each_1.id), 1);
+
+                setName('');
+                setEmail('');
+                selectedOS = {...selectedOS, single: {}};
               }
             });
             // console.log("After...", setContactsOS.groupAssociations);
@@ -464,10 +485,15 @@ export default function GetContacts(){
           {/* Show groups */}
           <div className="items-center gap-3">
             <h2 className="text-green-600">Available Groups</h2>
-            <ul className="text-green-600">
+            {/* <ul className="text-green-600">
               <li key={0}><a href='#' onClick={() => prepState("active-group", {group: {id: 'all'}})}>All</a></li>
-              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => <li key={i+1}><a href='#' onClick={() => prepState("active-group", {group: each})}>{each.group_name}{/*  {each.id} */}</a></li>)}
-            </ul>
+              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => <li key={i+1}><a href='#' onClick={() => prepState("active-group", {group: each})}>{each.group_name}</a></li>)}
+            </ul> */}
+            <select name="" id="" onChange={e => prepState("active-group", e.target.value == 0 ? {group: {id: 'all'}} : {group: data.phoneNumbersData.phone_number_groups.data[Number(e.target.value)-1]})}>
+            {/* <select name="" id="" onChange={e => console.log(e.target.value)}> */}
+              <option key={0} value={0}>All</option>
+              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => <option key={i+1} value={i+1}>{each.group_name}</option>)}
+            </select>
           </div>
         </>
       {/* } */}

@@ -23,7 +23,7 @@ export default function ProfilePage() {
           <div><strong>Name:</strong> {data.user.full_name}</div>
           <div><strong>Email:</strong> {data.user.email}</div>
           <div><strong>Role:</strong> {data.user.role}</div>
-          <div className="mt-3 text-sm text-gray-500">Manage API keys and billing in the admin panel.</div>
+          {/* <div className="mt-3 text-sm text-gray-500">Manage API keys and billing in the admin panel.</div> */}
           {/* <p>{user?.name}</p> */}
           {/* <p>{user?.email}</p> */}
         </div>
