@@ -75,7 +75,9 @@ app.get('/health', (req,res)=>res.status(200).json({ ok: true,
   "version": "1.0.0" }));
 
 const PORT = process.env.PORT || 4000; // 8080
-app.listen(PORT, () => console.log('Backend listening on', PORT))
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Backend listening on ${PORT}`);
+});
 }
 
 startServer().catch(err => {
