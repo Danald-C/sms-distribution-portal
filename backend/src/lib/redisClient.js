@@ -1,18 +1,22 @@
 const IORedis = require('ioredis');
 
-// const redis = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379');
-/* const redis = new IORedis({
-  host: process.env.REDIS_HOST || 'redis',
-  port: 6379
-}); */
 const connectionRedis = new IORedis({
   host: process.env.REDIS_HOST || 'redis',
   port: Number(process.env.REDIS_PORT) || 6379,
+
+  ...(process.env.REDIS_PASSWORD && {
+    password: process.env.REDIS_PASSWORD
+  }),
+
+  ...(process.env.REDIS_USER && {
+    username: process.env.REDIS_USER
+  }),
+
   maxRetriesPerRequest: null,
   enableReadyCheck: false
 });
 
-const REUSE_WINDOW_SEC = 60 * 60 * 24; // 24 hours for reuse counters
+const REUSE_WINDOW_SEC = 60 * 60 * 24;
 
 module.exports = {
   connectionRedis,
