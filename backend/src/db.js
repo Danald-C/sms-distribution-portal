@@ -13,15 +13,15 @@ const {
   DB_HOST,
   DB_NAME,
   DB_PORT,
-  APP_JWT_SECRET,
-  APP_JWT_EXPIRES = '15m',
+  JWT_ACCESS_SECRET,
+  JWT_ACCESS_EXPIRES = '15m',
   REFRESH_TOKEN_EXPIRES = '30', // days
   COGNITO_POOL_ID,
   AWS_REGION,
   FIREBASE_SERVICE_ACCOUNT, // path to service account JSON or JSON string
   REFRESH_COOKIE_NAME = 'sms_refresh',
   NODE_ENV,
-  REFRESH_TOKEN_EXPIRES_DAYS = '30',
+  JWT_REFRESH_EXPIRES = '30',
 } = process.env
 
 const envDefs = {COGNITO_POOL_ID, AWS_REGION}

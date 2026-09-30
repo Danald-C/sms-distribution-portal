@@ -1,19 +1,21 @@
 const jwt = require('jsonwebtoken')
-const { Pool } = require('pg')
+// const { Pool } = require('pg')
 const nodemailer = require("nodemailer");
+const db = require("../db.js"); // your DB connection
 
-const { APP_JWT_SECRET, DATABASE_URL } = process.env
-const pool = new Pool({ connectionString: DATABASE_URL })
+const { JWT_ACCESS_SECRET, JWT_ACCESS_EXPIRES, DATABASE_URL } = process.env
+// const pool = new Pool({ connectionString: DATABASE_URL })
 
-const secret = process.env.JWT_ACCESS_SECRET, duration = process.env.JWT_SECRET_EXPIRES || '15m';
+// const secret = process.env.JWT_ACCESS_SECRET, duration = process.env.JWT_SECRET_EXPIRES || '15m';
+const secret = JWT_ACCESS_SECRET, duration = JWT_ACCESS_EXPIRES || '15m';
 
 
 // const token = jwt.sign({ userId: user.id, }, process.env.JWT_SECRET, { expiresIn: '7d', })
 
-async function getUserById(id) {
+/* async function getUserById(id) {
   const res = await pool.query('SELECT id, email, name FROM users WHERE id = $1 LIMIT 1', [id])
   return res.rows[0] || null
-}
+} */
 
 async function authMiddleware(req, res, next) {
   try {
@@ -25,15 +27,16 @@ async function authMiddleware(req, res, next) {
     const token = parts[1]
     let payload
     try {
-      payload = jwt.verify(token, APP_JWT_SECRET || 'dev-secret')
+      payload = jwt.verify(token, JWT_ACCESS_SECRET || 'dev-secret')
     } catch (err) {
       return res.status(401).json({ error: 'Invalid or expired token' })
     }
 
-    const user = await getUserById(payload.sub)
-    if (!user) return res.status(401).json({ error: 'User not found' })
+    // const user = await getUserById(payload.sub)
+    let user = await db.functions.tableGetRows("users", { id: payload.sub });
+    if (!user.data[0]) return res.status(401).json({ error: 'User not found' })
 
-    req.user = user
+    req.user = user.data[0]
     next()
   } catch (err) {
     console.error('authMiddleware error', err)
