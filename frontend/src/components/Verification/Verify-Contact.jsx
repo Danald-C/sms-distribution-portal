@@ -10,6 +10,7 @@ export default function VerifyContactPage(){
     const [getAlerts, setGetAlerts] = useState([])
 
     const [otp, setOtp] = useState("");
+    const [user, setUser] = useState(null);
 
     const [otpSent, setOtpSent] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -34,8 +35,9 @@ export default function VerifyContactPage(){
 
             if(storedUser.Success && storedUser.user.phone_number){
                 console.log("Phone number verified: ", storedUser.user.phone_number)
-            processRequest(number, "");
-            setNumber(storedUser.user.phone_number);
+                processRequest(storedUser.user.phone_number, "");
+                setNumber(storedUser.user.phone_number);
+                setUser(storedUser.user);
             }else{
                 functions.logout();
                 // setStoredToken(null);
@@ -114,6 +116,7 @@ export default function VerifyContactPage(){
             {
                 !otpSent && 
                 <form className="bg-white rounded-xl p-6 shadow bg-white p-6 rounded-2xl shadow-lg w-full max-w-md" onSubmit={submit}>
+                    <h3>Add a phone number to {user?.name+', '+user?.email || 'your account'}</h3>
                     <PhoneInput international defaultCountry="GH" value={number} onChange={setNumber} className="border p-3 rounded-lg" />
                     <button className="px-4 py-2 bg-indigo-600 text-white rounded">Verify now</button>
                 </form>
