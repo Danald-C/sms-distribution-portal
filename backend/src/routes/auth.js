@@ -186,6 +186,17 @@ router.post('/verify-email', async (req, res) => {
   res.json({ ok: true });
 });
 
+router.get('/get-user', Middlewares.verifyJWTMiddleware, async (req, res) => {
+  try{
+    let returnedUser = await db.functions.tableGetRows("users", { id: req.user.user_id }), thisUser = returnedUser.data[0];
+    console.log("Get User: ", thisUser);
+    res.json({ Success: true, user: thisUser });
+  }catch(error){
+    console.error('Cannot get user: ', error)
+    res.json( {Success: false, error} )
+  }
+});
+
 // Verify Number
 router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => {
   try{

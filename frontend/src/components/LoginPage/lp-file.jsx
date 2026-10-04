@@ -40,7 +40,8 @@ export default function LoginPage() {
         functions.processLL(data);
         navigate(data.newUser ? "/verify-contact" : "/dashboard");
       }else{
-        navigate("/");
+        // navigate("/");
+        setAlerts([{from: 2, type: "caution", message: "Sorry. This process failed. Account does not exist."}, ...alerts]);
       }
     } catch (error) {
       console.error("User authentication failed:", error);

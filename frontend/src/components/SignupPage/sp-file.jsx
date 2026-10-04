@@ -20,8 +20,8 @@ export default function SignupPage() {
   async function signinNow(e) {
     e.preventDefault();
     
-    console.log("Payload: ", payload);
-    /* try {
+    // console.log("Payload: ", payload);
+    try {
       // const response = await fetch('http://localhost:4000/api/auth/usersign-oauth', {
       const response = await fetch(`${data.API_URL}/auth/usersign-oauth`, {
           method: 'POST',
@@ -40,7 +40,7 @@ export default function SignupPage() {
       }
     } catch (error) {
       console.error("User authentication failed:", error);
-    } */
+    }
   }
 
 
@@ -70,7 +70,7 @@ export default function SignupPage() {
       {/* <form id="g_id_onload" data-client_id={import.meta.env.VITE_GOOGLE_CLIENT_ID} data-callback={handleCredentialResponse} onSubmit={submit} className="max-w-md mx-auto p-6 bg-white rounded-lg"> */}
       <form onSubmit={signinNow} className="max-w-md mx-auto p-6 bg-white rounded-lg">
         <h2 className="text-2xl font-semibold mb-6">Sign up here.</h2>
-        <input className="w-full p-2 mb-2 border rounded" placeholder="Full name" value={payload.name} onChange={(e) => setPayload({ ...payload, name: e.target.value })} />
+        <input className="w-full p-2 mb-2 border rounded" placeholder="Full name" value={payload.name} onChange={(e) => setPayload({ ...payload, name: e.target.value })} autoFocus />
         <input className="w-full p-2 mb-2 border rounded" placeholder="Email" value={payload.email} onChange={(e) => setPayload({ ...payload, email: e.target.value })} />
         {/* <input type="password" className="w-full p-2 mb-4 border rounded" placeholder="Password" value={payload.password} onChange={(e) => setPayload({ ...payload, password: e.target.value })} /> */}
         <button className="px-4 py-2 bg-indigo-600 text-white rounded">Create account</button>
