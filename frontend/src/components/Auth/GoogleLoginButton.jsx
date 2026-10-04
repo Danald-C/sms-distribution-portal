@@ -29,7 +29,7 @@ const provider = new GoogleAuthProvider(); */
         const idToken = await user.getIdToken()
         const [selDir, apiDir] = [0, ['login/hybrid', 'auth/firebase-login']]
         // send to backend hybrid login
-        const res = await fetch('/api/'+apiDir[selDir], {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({idToken}), credentials:'include'})
+        const res = await fetch(`${data.API_URL}/`+apiDir[selDir], {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({idToken}), credentials:'include'})
         alert('Logged in')
         } catch(e){
         console.error(e); alert('Login failed')
@@ -47,7 +47,7 @@ export function FirebaseAuthWatcher({ onUserChanged }) {
       } else {
         const idToken = await firebaseUser.getIdToken();
         // optionally refresh backend session
-        const res = await fetch('/api/auth/firebase-login', {
+        const res = await fetch(`${data.API_URL}/auth/firebase-login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken }),

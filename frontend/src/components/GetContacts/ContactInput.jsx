@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useAuth } from "react";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 export default function ContactInput() {
-    const [phone, setPhone] = useState("");
+  // const [API_URL, setAPI_URL] = useState(import.meta.env.VITE_API_URL || "http://localhost:4000");
+  const { values: { data, functions } } = useAuth();
+  const [phone, setPhone] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,7 +18,7 @@ export default function ContactInput() {
     console.log("Formatted Number:", phone);
 
     // Send to backend
-    const response = await fetch("http://localhost:5000/auth/request-otp", {
+    const response = await fetch(`${data.API_URL}/auth/request-otp`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useAuth } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 export default function SmsPortalDemo() {
+  // const [API_URL, setAPI_URL] = useState(import.meta.env.VITE_API_URL || "http://localhost:4000");
+  const { values: { data, functions } } = useAuth();
   const [message, setMessage] = useState('');
   const [recipientsFile, setRecipientsFile] = useState(null);
   const [sending, setSending] = useState(false);
@@ -50,7 +52,7 @@ export default function SmsPortalDemo() {
       form.append('message', message);
       if (recipientsFile) form.append('recipients', recipientsFile);
 
-      const res = await fetch('/api/sms/send', { method: 'POST', body: form });
+      const res = await fetch(`${data.API_URL}/sms/send`, { method: 'POST', body: form });
       if (!res.ok) throw new Error('Failed to send SMS');
       alert('Queued for sending — check dashboard for progress');
       setMessage('');
@@ -70,13 +72,13 @@ export default function SmsPortalDemo() {
   // Quick mobile-money/Paystack checkout flow (client-side redirect to hosted checkout)
   async function payWithPaystack() {
     // Call server to create transaction and get authorization url
-    const res = await fetch('/api/payments/paystack/create', { method: 'POST' });
+    const res = await fetch(`${data.API_URL}/payments/paystack/create`, { method: 'POST' });
     const data = await res.json();
     if (data.authorization_url) window.location.href = data.authorization_url;
   }
 
   async function payWithFlutterwave() {
-    const res = await fetch('/api/payments/flutterwave/create', { method: 'POST' });
+    const res = await fetch(`${data.API_URL}/payments/flutterwave/create`, { method: 'POST' });
     const data = await res.json();
     if (data.link) window.location.href = data.link;
   }

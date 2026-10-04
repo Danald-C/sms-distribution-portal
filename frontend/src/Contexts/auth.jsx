@@ -111,7 +111,7 @@ function AuthProvider({ children }) {
   }
 
   async function signup(payload) {
-    const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await fetch(`${API_URL}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error('Registration failed');
     return res.json();
   }

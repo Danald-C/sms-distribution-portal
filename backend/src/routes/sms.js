@@ -146,9 +146,14 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
 
     // preSMS_Send(req.body);
     // req.body.payload.map(each => {
-    filteredPayload.map(async each => {
+    /* filteredPayload.map(async each => {
       await preSMS_Send(each, req.body.sender);
-    });
+    }); */
+    await Promise.all(
+      filteredPayload.map(each =>
+        preSMS_Send(each, req.body.sender)
+      )
+    );
 
     if(filteredPayload.length > 0){
       // Write History here...
