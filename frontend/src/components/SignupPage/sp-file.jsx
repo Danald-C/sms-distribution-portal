@@ -8,7 +8,9 @@ export default function SignupPage() {
   const { values: { data, functions, setStates } } = useAuth();
   const navigate = useNavigate();
   const [payload, setPayload] = useState({ name: '', email: '' });
-  
+  let localAlerts = [];
+  const [alerts, setAlerts] = useState(localAlerts);
+
     useEffect(() => {
       // Try to refresh token on app load
       function refresh() {
@@ -16,27 +18,57 @@ export default function SignupPage() {
       }
       refresh();
     }, []);
+
+  function processError(alert, set=0){
+    // localAlerts = alerts;
+    if(set == 1){
+      if(localAlerts.length == 0 || !localAlerts.filter(each => each.number == alert.number)){
+        localAlerts.push(alert);
+        // setAlerts(alerts);
+      }else{
+        localAlerts.map(each => {
+          if(each.number == alert.number){
+            each.type = alert.type;
+            each.message = alert.message;
+          }
+        });
+        // setAlerts(alerts);
+      }
+    }else{
+      localAlerts.filter(each => each.number !== alert.number);
+    }
+        // console.log(alerts);
+
+    return localAlerts;
+  }
   
   async function signinNow(e) {
     e.preventDefault();
     
-    // console.log("Payload: ", payload);
     try {
-      // const response = await fetch('http://localhost:4000/api/auth/usersign-oauth', {
-      const response = await fetch(`${data.API_URL}/auth/usersign-oauth`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        })
-        const returnedData = await response.json()
-        
-      if (returnedData.Success) {
-        functions.processLL(returnedData);
-        navigate(returnedData.newUser ? "/verify-contact" : "/dashboard");
+      if(!payload.name || !functions.validateEmail(payload.email)){
+        // processError({number: 1, type: "caution", message: "Something went wrong, check the information you provided."}, 1);
+        // setAlerts([{from: 1, type: "caution", message: "Something went wrong, check the information you provided."}, ...alerts]);
+        // console.log(getAlerts);
+        setAlerts(processError({number: 1, type: "caution", message: "Something went wrong, check the information you provided."}, 1));
+        // return false;
       }else{
-        navigate("/");
+        // const response = await fetch('http://localhost:4000/api/auth/usersign-oauth', {
+        const response = await fetch(`${data.API_URL}/auth/usersign-oauth`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          })
+          const returnedData = await response.json()
+          
+        if (returnedData.Success) {
+          functions.processLL(returnedData);
+          navigate(returnedData.newUser ? "/verify-contact" : "/dashboard");
+        }else{
+          navigate("/");
+        }
       }
     } catch (error) {
       console.error("User authentication failed:", error);
@@ -66,7 +98,8 @@ export default function SignupPage() {
 
   return (
     <>
-      {/* {console.log("See this..", data)} */}
+      {console.log("See this..", alerts)}
+      {alerts.length > 0 && functions.displayError(alerts)}
       {/* <form id="g_id_onload" data-client_id={import.meta.env.VITE_GOOGLE_CLIENT_ID} data-callback={handleCredentialResponse} onSubmit={submit} className="max-w-md mx-auto p-6 bg-white rounded-lg"> */}
       <form onSubmit={signinNow} className="max-w-md mx-auto p-6 bg-white rounded-lg">
         <h2 className="text-2xl font-semibold mb-6">Sign up here.</h2>

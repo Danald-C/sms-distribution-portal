@@ -121,7 +121,7 @@ router.post('/google-oauth', async (req, res)=> {
 
 router.post('/usersign-oauth', async (req, res)=> {
   try{
-    // console.log(req.body)
+    console.log(req.body)
     // let authentication = await authenticateUser({ full_name: req.body.name, email: req.body.email, google_id: 0, profile_picture: "none" });
     let authentication = await authenticateUser({ full_name: req.body.name, email: req.body.email, google_id: 'gid_0', profile_picture: "none" });
     // let returnedData = {success: oAuth_res.success, token: jwtToken, user, newUser };
@@ -137,8 +137,8 @@ router.post('/usersign-oauth', async (req, res)=> {
 async function authenticateUser(user) {
     let userData = await db.functions.tableGetRows("users", { email: user.email }), thisUser = userData.data[0], newUser = false;
     if(!thisUser){
-      // thisUser = await db.functions.tableCreateRow("users", user);
-      thisUser = await db.functions.tableCreateRow("users", {...user, unit_1: defaultUnit, unit_1_created_at: new Date()});
+      let getAll = await db.functions.tableGetRows("users", {});
+      thisUser = await db.functions.tableCreateRow("users", {...user, google_id: `gid_${getAll.data.length}`, unit_1: defaultUnit, unit_1_created_at: new Date()});
 
       newUser = true;
     }else{

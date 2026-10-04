@@ -35,7 +35,7 @@ export default function VerifyContactPage(){
 
             if(storedUser.Success && storedUser.user.phone_number){
                 console.log("Phone number verified: ", storedUser.user.phone_number)
-                processRequest(storedUser.user.phone_number, "");
+                await processRequest(storedUser.user.phone_number, "");
                 setNumber(storedUser.user.phone_number);
                 setUser(storedUser.user);
             }else{
@@ -77,7 +77,7 @@ export default function VerifyContactPage(){
             }else{
                 responseData.status.success && setOtpSent(true);
             } */
-           processRequest(number, otp);
+           await processRequest(number, otp);
         }catch(err){
             console.error(err.message || 'Verification failed');
         } finally {
