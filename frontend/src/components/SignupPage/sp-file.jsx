@@ -98,7 +98,7 @@ export default function SignupPage() {
 
   return (
     <>
-      {console.log("See this..", alerts)}
+      {/* {console.log("See this..", alerts)} */}
       {alerts.length > 0 && functions.displayError(alerts)}
       {/* <form id="g_id_onload" data-client_id={import.meta.env.VITE_GOOGLE_CLIENT_ID} data-callback={handleCredentialResponse} onSubmit={submit} className="max-w-md mx-auto p-6 bg-white rounded-lg"> */}
       <form onSubmit={signinNow} className="max-w-md mx-auto p-6 bg-white rounded-lg">

@@ -207,7 +207,7 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
     // console.log(await db.functions.removeUser("users", { id: "6d6eafe9-1778-46f0-8a77-9c99309a99f7" }))
     if(verified){
       // Process OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = Math.floor(100000 + Math.random() * 900000).toString(), otpMessage = `Your OTP is ${otp}. It expires in 10 minutes.`, otpMessFrom = "DC Soft";
       
       let returnedUser = await db.functions.tableGetRows("users", { id: user_id }), thisUser = returnedUser.data[0];
       if(thisUser){
@@ -224,13 +224,18 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
           // console.log(`Watch here: ${success}`, verified.user, `THIS USER: `, thisUser, req.body)
           let returnedOtp = await db.functions.tableGetRows("phone_otp", { user_id: `${thisUser.id}` }), thisOtp = returnedOtp.data[0];
           // console.log(`Watch here: ${status.success}`, `Otp: ${thisOtp.otp} == ${req.body.otp}`, `Date: ${new Date(thisOtp.expires_at)} and ${new Date()}`, verified.user)
-          if(!thisOtp){
-            await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp, expires_at: expiresAt });
-            await preSMS_Send({ to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` }, "DC Soft");
+          if(!thisOtp || req.body.otp.resend){
+            if(req.body.otp.resend){
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
+            }else{
+              await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp, expires_at: expiresAt });
+            }
+            await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
 
             status.success = true;
           }else{ // Otp exists already OR receiving it
-           if(thisOtp.otp === req.body.otp){
+          //  if(thisOtp.otp === req.body.otp){
+           if(thisOtp.otp === req.body.otp.code){
             if(new Date(thisOtp.expires_at) > new Date()){
               await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_verified: true });
 
@@ -253,7 +258,7 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
               status.complete = true;
             }else{
               await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
-              await preSMS_Send({ to: [thisUser.phone_number], message: `Your OTP is ${otp}. It expires in 10 minutes.` }, "DC Soft");
+              await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
             }
             
             status.success = true;
@@ -275,9 +280,11 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
 
 router.post('/remove-record', async (req, res) => {
   try{
-    console.log("Removing record: ", req.body)
-    req.body.map(async (each) => {
-      await db.functions.removeUser(each.table, each.clause);
+    // console.log("Removing record: ", req.body)
+    req.body.map(table => {
+      // await db.functions.removeUser(table.tbname, table.clause);
+      table.tbrecords.map(async record => await db.functions.removeUser(table.tbname, record[0]));
+      // table.tbrecords.map(async record => console.log(record[0]));
     })
   
     res.json({ status: "Success" });
