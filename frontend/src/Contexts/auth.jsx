@@ -35,9 +35,10 @@ function AuthProvider({ children }) {
     // Try to refresh token on app load
     async function refresh() {
       try {
-        const storedToken = localStorage.getItem("token");
+        // const storedToken = localStorage.getItem("token");
+        let storedToken = temporaryStore({name: "token"});
         if(storedToken){
-          // console.log("Stored Token..", storedToken);
+          console.log("Stored Token..", storedToken);
           // const storedUser = localStorage.getItem("user");
           const response = await fetch(`${API_URL}/auth/refresh`, {
             headers: {
@@ -85,8 +86,13 @@ function AuthProvider({ children }) {
 
   async function processLL(data) { // Local Login
     // console.log("Data Entry", data);
-    localStorage.setItem('token', data.token)
-    setAccessToken(localStorage.getItem('token'));
+
+    // localStorage.setItem('token', data.token)
+    let token = temporaryStore({name: "token", value: data.token}, 1);
+
+    // setAccessToken(localStorage.getItem('token'));
+    setAccessToken(token);
+    
     setUser(data.user);
     setPhoneNumbersData(data.allData);
   }
@@ -94,17 +100,26 @@ function AuthProvider({ children }) {
   function processGL(data) { // Google Login
     // setGateway('google');
     // localStorage.setItem('token', JSON.stringify(data.token))
-    localStorage.setItem('token', data.token)
+
+    // localStorage.setItem('token', data.token)
+    let token = temporaryStore({name: "token", value: data.token}, 1);
+
     // localStorage.setItem('user', JSON.stringify(data.user))
     // setAccessToken(JSON.parse(localStorage.getItem('token')));
-    setAccessToken(localStorage.getItem('token'));
+
+    // setAccessToken(localStorage.getItem('token'));
+    setAccessToken(token);
+    
     setUser(data.user);
     setPhoneNumbersData(data.allData);
   }
 
   async function logout() {
     // await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-    localStorage.removeItem("token");
+
+    // localStorage.removeItem("token");
+    temporaryStore({name: "token"}, 2);
+
     // localStorage.removeItem("user");
     setAccessToken(null);
     setUser(null);
@@ -116,20 +131,24 @@ function AuthProvider({ children }) {
     return res.json();
   }
 
-  function temporaryStore(data, save=1){
-    if(save === 3){ // Remove
+  // function temporaryStore(data, save=0){
+  function temporaryStore(data, save=0, parse=false){
+    if(save === 2){ // Remove
       localStorage.removeItem(data.name);
     }else{ // Set
-      save === 1 && localStorage.setItem(data.name, JSON.stringify(data.value));
+      // save === 1 && localStorage.setItem(data.name, JSON.stringify(data.value));
+      if(save === 1){
+        (parse) ? localStorage.setItem(data.name, JSON.stringify(data.value)) : localStorage.setItem(data.name, data.value);;
+      }
     }
 
-    return JSON.parse(localStorage.getItem(data.name)) || null;
+    // console.log(localStorage.getItem(data.name))
+    return (parse) ? JSON.parse(localStorage.getItem(data.name)) : localStorage.getItem(data.name) || null;
   }
   
   function validateNumber(number, allAlerts = []){
     let checkNumber = {noPlus: function(){ return number.split("+")[1] }, lastNine: function(){ return this.noPlus().slice(-9) }, countryCode: function(){ return this.noPlus().length - this.lastNine().length }}
     
-    // console.log(number)
     if(!number){
       // allAlerts.push({from: 0, type: 0, message: "Enter a number"})
       allAlerts.push({from: 0, type: "caution", message: "Enter a number"})
@@ -155,9 +174,38 @@ function AuthProvider({ children }) {
       );
   };
 
+
+  // *** *** *** Error Handling Functions *** *** ***
+  function processError(localAlerts, alert, set=0){
+    // localAlerts = alerts;
+    if(set == 1){ // set alert
+      if(localAlerts.length == 0 || !localAlerts.filter(each => each.number == alert.number)){ // New
+        localAlerts.push(alert);
+        // setAlerts(alerts);
+      }else{ // Exists
+        localAlerts.map((each, i) => {
+          if(each.number == alert.number){
+            // each.type = alert.type;
+            // each.message = alert.message;
+            localAlerts[i].type = alert.type;
+            localAlerts[i].message = alert.message;
+          }
+        });
+        // setAlerts(alerts);
+      }
+    }else{ // remove alert
+      localAlerts.filter(each => each.number !== alert.number);
+    }
+        // console.log(alerts);
+
+    return localAlerts;
+  }
+
   function displayError(alerts){
     return alerts.map((alert, i) => (<p key={i} className={alert.type}>{alert.message}</p>))
   }
+  // *** *** *** End of Error Handling Functions *** *** ***
+
 
   async function fetchFromBackend({path, data}){
     const response = await fetch(`${API_URL}/${path}`, {
@@ -214,6 +262,7 @@ function AuthProvider({ children }) {
     displayElements,
     fetchFromBackend,
     displayError,
+    processError,
     setLoadContent,
     setPhoneNumbersData
   }}

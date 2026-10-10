@@ -18,29 +18,6 @@ export default function SignupPage() {
       }
       refresh();
     }, []);
-
-  function processError(alert, set=0){
-    // localAlerts = alerts;
-    if(set == 1){
-      if(localAlerts.length == 0 || !localAlerts.filter(each => each.number == alert.number)){
-        localAlerts.push(alert);
-        // setAlerts(alerts);
-      }else{
-        localAlerts.map(each => {
-          if(each.number == alert.number){
-            each.type = alert.type;
-            each.message = alert.message;
-          }
-        });
-        // setAlerts(alerts);
-      }
-    }else{
-      localAlerts.filter(each => each.number !== alert.number);
-    }
-        // console.log(alerts);
-
-    return localAlerts;
-  }
   
   async function signinNow(e) {
     e.preventDefault();
@@ -50,7 +27,7 @@ export default function SignupPage() {
         // processError({number: 1, type: "caution", message: "Something went wrong, check the information you provided."}, 1);
         // setAlerts([{from: 1, type: "caution", message: "Something went wrong, check the information you provided."}, ...alerts]);
         // console.log(getAlerts);
-        setAlerts(processError({number: 1, type: "caution", message: "Something went wrong, check the information you provided."}, 1));
+        localAlerts = setAlerts(functions.processError(localAlerts, {number: 1, type: "caution", message: "Something went wrong, check the information you provided."}, 1));
         // return false;
       }else{
         // const response = await fetch('http://localhost:4000/api/auth/usersign-oauth', {

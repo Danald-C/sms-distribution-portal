@@ -84,8 +84,8 @@ export default function LoginPage() {
             className="space-y-5 p-6 sm:p-8"
           >
             <div>
-              <h2 className="text-xl font-semibold text-slate-800">Welcome back enjoy the experience</h2>
-              <p className="mt-1 text-sm text-slate-500">Enter your email to continue</p>
+              <h2 className="text-xl font-semibold text-slate-800">Welcome back. Enjoy the experience!!</h2>
+              {/* <p className="mt-1 text-sm text-slate-500">Enter your email to continue</p> */}
             </div>
 
             <div className="space-y-2">
@@ -116,6 +116,9 @@ export default function LoginPage() {
           <div className="relative px-6 sm:px-8">
             <div className="absolute inset-0 flex items-center" aria-hidden="true">
               <div className="w-full border-t border-slate-100" />
+            </div>
+            <div className="relative flex justify-center">
+              <hr />
             </div>
             <div className="relative flex justify-center">
               <span className="bg-white px-3 text-xs font-medium uppercase tracking-wide text-slate-400">

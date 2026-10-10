@@ -15,7 +15,7 @@ const { Queue } = require('bullmq');
 // const IORedis = require('ioredis');
 
 // const { sendSmsViaProvider} = require('../worker/sms-worker');
-console.log('Redis connecting to:', connectionRedis.options.host + ':' + connectionRedis.options.port);
+// console.log('Redis connecting to:', connectionRedis.options.host + ':' + connectionRedis.options.port);
 
 // const smsQueue = new Queue('sms-send', { connection: { host: process.env.REDIS_HOST || 'localhost', port: 6379 } });
 const smsQueue = new Queue('sms-queue', { connection: connectionRedis });

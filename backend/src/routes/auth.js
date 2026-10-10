@@ -138,11 +138,14 @@ async function authenticateUser(user) {
     let userData = await db.functions.tableGetRows("users", { email: user.email }), thisUser = userData.data[0], newUser = false;
     if(!thisUser){
       let getAll = await db.functions.tableGetRows("users", {});
-      thisUser = await db.functions.tableCreateRow("users", {...user, google_id: `gid_${getAll.data.length}`, unit_1: defaultUnit, unit_1_created_at: new Date()});
+      thisUser = await db.functions.tableCreateRow("users", {...user, google_id: `gid_${getAll.data.length}`, unit_1: defaultUnit, unit_1_created_at: new Date(), unit_2: 0});
 
       newUser = true;
     }else{
-      if(!thisUser.phone_verified) newUser = true;
+      if(!thisUser.phone_verified){
+        if(user.full_name) thisUser = await db.functions.tableUpdateRow("users", {id: thisUser.id, full_name: user.full_name });
+        newUser = true;
+      }
     }
     const [
       phone_numbers,
@@ -189,7 +192,7 @@ router.post('/verify-email', async (req, res) => {
 router.get('/get-user', Middlewares.verifyJWTMiddleware, async (req, res) => {
   try{
     let returnedUser = await db.functions.tableGetRows("users", { id: req.user.user_id }), thisUser = returnedUser.data[0];
-    console.log("Get User: ", thisUser);
+    // console.log("Get User: ", thisUser);
     res.json({ Success: true, user: thisUser });
   }catch(error){
     console.error('Cannot get user: ', error)
@@ -202,21 +205,20 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
   try{
     // Verify Token
     const authHeader = req.headers.authorization;
-    let verified = Middlewares.getVerified(authHeader), status = {success: false, complete: false}, user_id = verified.user_id;
+    let verified = Middlewares.getVerified(authHeader), status = {success: false, complete: false, resent: false, error: {state: false, message: ""}}, user_id = verified.user_id, returnedUser = await db.functions.tableGetRows("users", { id: user_id }), thisUser = returnedUser.data[0];
 
     // console.log(await db.functions.removeUser("users", { id: "6d6eafe9-1778-46f0-8a77-9c99309a99f7" }))
     if(verified){
       // Process OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString(), otpMessage = `Your OTP is ${otp}. It expires in 10 minutes.`, otpMessFrom = "DC Soft";
       
-      let returnedUser = await db.functions.tableGetRows("users", { id: user_id }), thisUser = returnedUser.data[0];
       if(thisUser){
         if(thisUser.phone_verified){
           status = {success: true, complete: true};
         }else{
           let expiresAt = new Date(Date.now() + 10*60*1000) // 10 minutes from now
           // Date.now() + 5 * 60 * 1000
-
+          
           if(!thisUser.phone_number){
             thisUser = await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_number: req.body.number });
           }
@@ -227,16 +229,19 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
           if(!thisOtp || req.body.otp.resend){
             if(req.body.otp.resend){
               await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
+              status = {...status, resent: true};
             }else{
               await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp, expires_at: expiresAt });
             }
             await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
 
-            status.success = true;
+            status = {...status, success: true};
+            // status.success = true;
           }else{ // Otp exists already OR receiving it
           //  if(thisOtp.otp === req.body.otp){
            if(thisOtp.otp === req.body.otp.code){
-            if(new Date(thisOtp.expires_at) > new Date()){
+            // if(new Date(thisOtp.expires_at) > new Date()){
+            if(new Date(thisOtp.expires_at).getTime() > new Date().getTime()){
               await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_verified: true });
 
               await preSMS_Send({ to: [thisUser.phone_number], message: `Welcome to DC SMS Distribution Portal, Your sign up process was successfull.. Enjoy your experience!` }, "DC Soft");
@@ -255,26 +260,40 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
                 `
               });
             
-              status.complete = true;
+              status = {...status, complete: true};
+              // status.complete = true;
             }else{
               await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
               await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
+
+              status = {...status, resent: true, error: {state: true, message: "OTP expired. A new OTP has been sent."}};
             }
             
-            status.success = true;
-           }else{
-    // console.log(thisOtp)
-            status.success = false;
+            status = {...status, success: true};
+            // status.success = true;
+          }else{
+            status = {...status, success: false, error: {state: false, message: "Invalid OTP. Please try again."}};
+            if(new Date(thisOtp.expires_at).getTime() < new Date().getTime()){
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
+              await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
+              
+              status = {...status, resent: true, error: {state: false, message: ""}};
+            }
+            console.log("DID WE GET HERE?????", status, thisOtp, req.body.otp)
+            console.log(new Date(thisOtp.expires_at).getTime() > new Date().getTime())
+            // status.success = false;
            }
           }
         }
       }
+    }else{
+      status = {...status, error: {state: true, message: "User not verified."}};
     }
 
-    res.json({ status });
+    res.json({ status, user: thisUser });
   }catch(err){
     console.error('verify-number error', err)
-    res.json( {status: {Success: false}, Error: `verify-number error: ${err}`} )
+    res.json( {status: {success: false, complete: false, error: {state: true, message: `Verify number failed: ${err}`}}} )
   }
 });
 

@@ -3,6 +3,9 @@ const { Worker } = require('bullmq');
 const { connectionRedis } = require('../lib/redisClient');
 const axios = require('axios');
 
+const controller = new AbortController();
+const {signal} = controller;
+
 async function sendSmsViaProvider(sender, to, message) {
   console.log(`📨 Sending SMS to ${to}: ${message}. From: ${sender}`);
 
@@ -47,7 +50,13 @@ const smsWorker = new Worker(
     const { sender, to, message } = job.data;
 
     console.log(`🔄 Processing SMS job ${job.id}`);
-
+    
+    /* while(true){
+      if(signal.aborted){
+        console.log(`Worker stopped gracefully.`);
+        break;
+      }
+    } */
     await sendSmsViaProvider(sender, to, message);
 
     console.log(`✅ SMS job ${job.id} completed`);
@@ -56,6 +65,7 @@ const smsWorker = new Worker(
     connection: connectionRedis
   }
 );
+    // await smsWorker.close(true);
 
 smsWorker.on('ready', () => {
   console.log('🚀 SMS worker ready to process jobs...');
@@ -75,6 +85,8 @@ smsWorker.on('failed', (job, error) => {
 smsWorker.on('error', error => {
   console.error('❌ SMS worker error:', error);
 });
+
+// controller.abort();
 
 module.exports = {
   sendSmsViaProvider
