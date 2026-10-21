@@ -259,9 +259,9 @@ export default function GetContacts(){
 
   function prepareSMS(mode){
     let baseContacts = [contacts.existing_numbers, contacts.new_numbers], finalContacts = selectedIS.multi[1][mode].length > 0 ? selectedIS.multi[1][mode] : baseContacts[mode];
-    // console.log("Prep SMS here...", finalContacts);
+    console.log("Prep SMS here...", finalContacts);
     // setSendSMSTo(finalContacts);
-    if(functions.temporaryStore({name: 'sms-list', value: finalContacts})) navigate("/send-sms");
+    if(functions.temporaryStore({name: 'sms-list', value: finalContacts}, 1, true)) navigate("/send-sms");
   }
 
   async function sendToGroup(action, mode=0){
@@ -410,96 +410,280 @@ export default function GetContacts(){
 
 
   return (
-    <>
-      {/* <ContactInput /> */}
-      {/* <div className="min-h-screen flex items-center justify-center bg-gray-100"> */}
-      {/* {console.log('Look just here, ', clear)} */}
+    <div className="w-full min-w-0 space-y-6 text-slate-800">
       {alerts.length > 0 && functions.displayError(alerts)}
-      <>
-        {/* <Link to="/dashboard" className="text-blue-500 hover:underline">Back &laquo;</Link> */}
 
-        {/* Add new contacts */}
-          <form className="bg-white rounded-xl p-6 shadow bg-white p-6 rounded-2xl shadow-lg w-full max-w-md" onSubmit={submit}>
-            <h2 className="text-lg font-semibold mb-2">Provide the Contact number.</h2>
-            <div className="flex items-center gap-3">
-              <PhoneInput international defaultCountry="GH" value={number} onChange={setNumber} className="border p-3 rounded-lg" autoFocus={true} />
-              {/* <input type="text" value={clear ? '' : name} onChange={e=>setName(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Name (optional)" /> */}
-              <input type="text" value={name} onChange={e=>setName(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Name (optional)" />
-              {/* <input type="text" value={clear ? '' : email} onChange={e=>setEmail(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Email (optional)" /> */}
-              <input type="text" value={email} onChange={e=>setEmail(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="Email (optional)" />
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+            Contact Management
+          </p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Add and organise recipients, manage contact groups, and prepare contacts for SMS campaigns.
+          </p>
+        </div>
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-100 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          {contacts.existing_numbers.length} saved contacts
+        </div>
+      </header>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-slate-900">Add a contact</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Enter a phone number and optionally add the person's name and email.
+          </p>
+        </div>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="min-w-0">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Phone number <span className="text-rose-500">*</span>
+              </label>
+              <PhoneInput
+                international
+                defaultCountry="GH"
+                value={number}
+                onChange={setNumber}
+                className="contact-phone-input w-full"
+                autoFocus={true}
+              />
             </div>
-            <div className="flex items-center gap-3">
-              {/* <input type="file" accept=".csv" onChange={e=>setFile(e.target.files[0])} /> */}
-              {/* <div className="ml-auto">Units: <strong>{units}</strong></div> */}
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded">{Object.keys(selectedIS.single).length > 0 ? "Change" : "Add"} Contact</button>
+            <div className="min-w-0">
+              <label htmlFor="contact-name" className="mb-1.5 block text-sm font-medium text-slate-700">
+                Full name <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input
+                id="contact-name"
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="e.g. Ama Mensah"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+              />
             </div>
-          </form>
-
-          {/* Save new contacts */}
-          <div className="items-center gap-3">
-              {!loading && 
-                contacts.new_numbers.length > 0 && <><h2 className="text-green-600">New Contacts:</h2><p>When the page reloads, this List might be lost. Save them if they're important.</p>
-              <label htmlFor="check-all-new"><input id='check-all-new' type='checkbox' checked={selectedIS.multi[0][1]} onChange={e => processCheckAll(e.target.checked, 1)} /> Check All</label></>
-              }
-              <ul className="text-green-600">
-                {!loading &&
-                  contacts.new_numbers.map((contact, index) => (
-                    <li key={index} className="mr-2">
-                      <input type="checkbox" checked={selectedIS.multi[1][1].some(each => each.id == contact.id)} onChange={() => processSelected(contact, 1)} />
-                      <a href='#' onClick={() => processSelected(contact, 1)}>{contact.full_name || "No Name"}: {contact.phone_number} {contact.email}</a> | <a href='#' onClick={() => processSelected(contact, 1, true)}>Remove</a>
-                    </li>
-                  ))
-                }
-              </ul>
-              {!loading && contacts.new_numbers.length > 0 && selectedIS.multi[1][1].length > 0 && <><button onClick={() => prepState("save-numbers", {newNums: selectedIS.multi[1][1], mode: 0})} className="px-4 py-2 bg-green-600 text-white rounded cursor-pointer">Save Selected</button><button onClick={() => removeMulti(1)}>Remove Selected</button><button onClick={() => prepareSMS(1)}>Prepare SMS</button></>}
+            <div className="min-w-0">
+              <label htmlFor="contact-email" className="mb-1.5 block text-sm font-medium text-slate-700">
+                Email address <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input
+                id="contact-email"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+              />
+            </div>
           </div>
-
-          {/* Show saved contacts */}
-          <div className="items-center gap-3">
-              {!loading && <><h2 className="text-green-600">{data.phoneNumbersData.phone_number_groups.data.find(group => group.id === toGroup.activeGroup.id)?.group_name || "All"} Contacts:</h2>
-              <label htmlFor="check-all-saved"><input id='check-all-saved' type='checkbox' checked={selectedIS.multi[0][0]} onChange={e => processCheckAll(e.target.checked, 0)} /> Check All</label></>}
-              <ul className="text-green-600">
-                {!loading && 
-                 contacts.existing_numbers.length > 0 && contacts.existing_numbers.map((contact, index) => (
-                    <li key={index} className="mr-2">
-                      <input type="checkbox" checked={selectedIS.multi[1][0].some(each => each.id == contact.id)} onChange={() => processSelected(contact, 0)} />
-                      <a href='#' onClick={() => processSelected(contact, 0)}>{contact.full_name || "No Name"}: {contact.phone_number} {contact.email}{/*  {contact.id} */}</a> {toGroup.activeGroup.id == "all" && <>| <a href='#' onClick={() => processSelected(contact, 0, true)}>Remove</a></>}
-                    </li>
-                  ))
-                }
-              </ul>
-              {selectedIS.multi[1][0].length > 0 && <>{toGroup.activeGroup.id == "all" && <button onClick={() => removeMulti(0)}>Delete Selected</button>}{toGroup.activeGroup.id != "all" && <button onClick={() => sendToGroup("remove")}>Remove From Group</button>}<button onClick={() => sendToGroup("show", 0)}>Add To Group</button><button onClick={() => prepareSMS(0)}>Prepare SMS</button></>}
+          <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs leading-5 text-slate-500">
+              Include the country code when adding international numbers.
+            </p>
+            <button
+              type="submit"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-800 focus:outline-none focus:ring-4 focus:ring-sky-200"
+            >
+              {Object.keys(selectedIS.single).length > 0 ? "Update contact" : "Add contact"}
+            </button>
           </div>
+        </form>
+      </section>
 
-          {/* Add to group */}
-          {toGroup.showAddToGroup &&
-          <div className="items-center gap-3">
-            <h2 className="text-green-600">Add Numbers Here..</h2>
-            <button onClick={() => prepState("active-group", {group: toGroup.activeGroup})}>Cancel</button>
-            <select name="" id="" onChange={e => prepState("add-group", {group: data.phoneNumbersData.phone_number_groups.data[e.target.value], setAddToGrp: true})}>
-              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => toGroup.activeGroup.id != each.id && <option key={i} value={i}>{each.group_name}</option>)}
+      {contacts.new_numbers.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-amber-100 bg-amber-50/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Unsaved contacts</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                These contacts are temporary until you save them. They may be lost when you leave this page.
+              </p>
+            </div>
+            <span className="w-fit rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+              {contacts.new_numbers.length} pending
+            </span>
+          </div>
+          <div className="p-4 sm:p-5">
+            <label htmlFor="check-all-new" className="mb-3 inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                id="check-all-new"
+                type="checkbox"
+                checked={selectedIS.multi[0][1]}
+                onChange={e => processCheckAll(e.target.checked, 1)}
+                className="h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-500"
+              />
+              Select all pending contacts
+            </label>
+            <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              {contacts.new_numbers.map((contact, index) => (
+                <div key={contact.id ?? index} className="flex min-w-0 items-start gap-3 p-3 sm:p-4">
+                  <input
+                    aria-label={`Select ${contact.full_name || contact.phone_number}`}
+                    type="checkbox"
+                    checked={selectedIS.multi[1][1].some(each => each.id == contact.id)}
+                    onChange={() => processSelected(contact, 1)}
+                    className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-700 focus:ring-sky-500"
+                  />
+                  <button type="button" onClick={() => processSelected(contact, 1)} className="min-w-0 flex-1 text-left">
+                    <span className="block truncate text-sm font-semibold text-slate-800">{contact.full_name || "No name"}</span>
+                    <span className="mt-1 block break-words text-sm text-slate-600">{contact.phone_number}</span>
+                    {contact.email && <span className="mt-0.5 block break-all text-xs text-slate-500">{contact.email}</span>}
+                  </button>
+                  <button type="button" onClick={() => processSelected(contact, 1, true)} className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+            {selectedIS.multi[1][1].length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" onClick={() => prepState("save-numbers", {newNums: selectedIS.multi[1][1], mode: 0})} className="rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-800">
+                  Save selected
+                </button>
+                <button type="button" onClick={() => removeMulti(1)} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                  Remove selected
+                </button>
+                <button type="button" onClick={() => prepareSMS(1)} className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100">
+                  Prepare SMS
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              {data.phoneNumbersData.phone_number_groups.data.find(group => group.id === toGroup.activeGroup.id)?.group_name || "All"} contacts
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Select contacts to manage groups, remove entries, or prepare an SMS.
+            </p>
+          </div>
+          <div className="w-full sm:w-64">
+            <label htmlFor="contact-group-filter" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Filter by group
+            </label>
+            <select
+              id="contact-group-filter"
+              value={toGroup.activeGroup.id === "all" ? "0" : String(data.phoneNumbersData.phone_number_groups.data.findIndex(group => group.id === toGroup.activeGroup.id) + 1)}
+              onChange={e => prepState("active-group", e.target.value == 0 ? {group: {id: 'all'}} : {group: data.phoneNumbersData.phone_number_groups.data[Number(e.target.value)-1]})}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+            >
+              <option value={0}>All contacts</option>
+              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => (
+                <option key={i+1} value={i+1}>{each.group_name}</option>
+              ))}
             </select>
-            <button onClick={() => sendToGroup("add")}>Add Now</button>
-          </div>}
-
-          {/* Show groups */}
-          <div className="items-center gap-3">
-            <h2 className="text-green-600">Available Groups</h2>
-            {/* <ul className="text-green-600">
-              <li key={0}><a href='#' onClick={() => prepState("active-group", {group: {id: 'all'}})}>All</a></li>
-              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => <li key={i+1}><a href='#' onClick={() => prepState("active-group", {group: each})}>{each.group_name}</a></li>)}
-            </ul> */}
-            <select name="" id="" onChange={e => prepState("active-group", e.target.value == 0 ? {group: {id: 'all'}} : {group: data.phoneNumbersData.phone_number_groups.data[Number(e.target.value)-1]})}>
-            {/* <select name="" id="" onChange={e => console.log(e.target.value)}> */}
-              <option key={0} value={0}>All</option>
-              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => <option key={i+1} value={i+1}>{each.group_name}</option>)}
-            </select>
           </div>
-        </>
-      {/* } */}
-      {/* </div> */}
-      {/* <ComposeSMS props={{newContact: contacts.new_numbers, loading}} /> */}
-      {/* <ComposeSMS props={{sendSMSTo: sendSMSTo, sentState: false}} /> */}
-    </>
+        </div>
+
+        <div className="p-4 sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <label htmlFor="check-all-saved" className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                id="check-all-saved"
+                type="checkbox"
+                checked={selectedIS.multi[0][0]}
+                onChange={e => processCheckAll(e.target.checked, 0)}
+                className="h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-500"
+              />
+              Select all ({contacts.existing_numbers.length})
+            </label>
+            {selectedIS.multi[1][0].length > 0 && (
+              <span className="w-fit rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800">
+                {selectedIS.multi[1][0].length} selected
+              </span>
+            )}
+          </div>
+
+          {contacts.existing_numbers.length > 0 ? (
+            <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              {contacts.existing_numbers.map((contact, index) => (
+                <div key={contact.id ?? index} className="flex min-w-0 items-start gap-3 p-3 sm:p-4">
+                  <input
+                    aria-label={`Select ${contact.full_name || contact.phone_number}`}
+                    type="checkbox"
+                    checked={selectedIS.multi[1][0].some(each => each.id == contact.id)}
+                    onChange={() => processSelected(contact, 0)}
+                    className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-700 focus:ring-sky-500"
+                  />
+                  <button type="button" onClick={() => processSelected(contact, 0)} className="min-w-0 flex-1 text-left">
+                    <span className="block truncate text-sm font-semibold text-slate-800">{contact.full_name || "No name"}</span>
+                    <span className="mt-1 block break-words text-sm text-slate-600">{contact.phone_number}</span>
+                    {contact.email && <span className="mt-0.5 block break-all text-xs text-slate-500">{contact.email}</span>}
+                  </button>
+                  {toGroup.activeGroup.id == "all" && (
+                    <button type="button" onClick={() => processSelected(contact, 0, true)} className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-6 w-6" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6m3-3h-6" />
+                </svg>
+              </div>
+              <h3 className="mt-3 text-sm font-semibold text-slate-900">No contacts in this view</h3>
+              <p className="mt-1 text-sm text-slate-500">Add a contact above or choose another group.</p>
+            </div>
+          )}
+
+          {selectedIS.multi[1][0].length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {toGroup.activeGroup.id == "all" ? (
+                <button type="button" onClick={() => removeMulti(0)} className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50">
+                  Delete selected
+                </button>
+              ) : (
+                <button type="button" onClick={() => sendToGroup("remove")} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                  Remove from group
+                </button>
+              )}
+              <button type="button" onClick={() => sendToGroup("show", 0)} className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100">
+                Add to group
+              </button>
+              <button type="button" onClick={() => prepareSMS(0)} className="rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-800">
+                Prepare SMS
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {toGroup.showAddToGroup && (
+        <section className="rounded-2xl border border-sky-200 bg-white p-4 shadow-sm sm:p-6">
+          <h2 className="text-lg font-semibold text-slate-900">Manage group membership</h2>
+          <p className="mt-1 text-sm text-slate-500">Choose a group for the selected contacts.</p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <select
+              aria-label="Destination contact group"
+              onChange={e => prepState("add-group", {group: data.phoneNumbersData.phone_number_groups.data[e.target.value], setAddToGrp: true})}
+              className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+            >
+              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => toGroup.activeGroup.id != each.id && (
+                <option key={i} value={i}>{each.group_name}</option>
+              ))}
+            </select>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => prepState("active-group", {group: toGroup.activeGroup})} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button type="button" onClick={() => sendToGroup("add")} className="rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-800">
+                Add to group
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+    </div>
   )
 }

@@ -65,6 +65,14 @@ async function dbQuery(queryText, params) {
   }
 }
 
+// *** ONLY RUN THIS IN THE CLI TO GENERATE TOKENS
+/* $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create() `
+$bytes = New-Object byte[] 64 `
+$rng.GetBytes($bytes) `
+[Convert]::ToBase64String($bytes) `
+$rng.Dispose() */
+
+
 /* DELETE FROM user_tokens
 WHERE expires_at IS NOT NULL
   AND expires_at < NOW();

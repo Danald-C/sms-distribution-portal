@@ -1,5 +1,32 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
+import { Link, Navigate } from 'react-router-dom';
+
+// Share one refresh request across duplicate effect executions.
+// This prevents React Strict Mode from rotating the same cookie twice.
+// Share an in-flight refresh request across Strict Mode effect replays.
+let refreshRequestPromise = null;
+
+/* function refreshSessionOnce(API_URL) {
+  if (!refreshRequestPromise) {
+    refreshRequestPromise = fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }).finally(() => {
+      refreshRequestPromise = null;
+    });
+  }
+
+  return refreshRequestPromise;
+} */
 
 // Simple AuthContext
 const AuthContext = createContext(null);
@@ -8,18 +35,56 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+function requestRefreshToken(API_URL) {
+  if (!refreshRequestPromise) {
+    refreshRequestPromise = fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(async (response) => {
+        const data = await response.json();
+
+        return {
+          ok: response.ok,
+          status: response.status,
+          data
+        };
+      })
+      .finally(() => {
+        refreshRequestPromise = null;
+      });
+  }
+
+  return refreshRequestPromise;
+}
+
+// ProtectedRoute wrapper
 // ProtectedRoute wrapper
 export function ProtectedRoute({ children }) {
-  // const { accessToken } = useAuth();
-  const { values: { data, functions } } = useAuth();
-  // const { values } = useAuth();
+  const {
+    values: {
+      data: { accessToken, authReady }
+    }
+  } = useAuth();
 
-  // console.log(data)
-  
-  if (!data.accessToken) return <div className="p-6">Please login to access this page. <Link to="/">Login</Link></div>;
-  
-  // return children;
-  return data.accessToken ? children : <Navigate to="/" />;
+  // Wait for initial session restoration to finish.
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Checking your session...</p>
+      </div>
+    );
+  }
+
+  // Redirect unauthenticated users to the login page.
+  if (!accessToken) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
 }
 
 function AuthProvider({ children }) {
@@ -30,8 +95,10 @@ function AuthProvider({ children }) {
   const [loadContent, setLoadContent] = useState(false);
   const [gateway, setGateway] = useState({type: 0, from: 'local'}); // '0 = signin' or '1 = signup'
   const [phoneNumbersData, setPhoneNumbersData] = useState([]);
+  const [authReady, setAuthReady] = useState(false);
+  const authOperationRef = useRef(0);
 
-  useEffect(() => {
+  /* useEffect(() => {
     // Try to refresh token on app load
     async function refresh() {
       try {
@@ -64,7 +131,106 @@ function AuthProvider({ children }) {
     }
     refresh();
     // loadPage();
-  }, []);
+  }, []); */
+  useEffect(() => {
+    let cancelled = false;
+
+    // Identify this particular restoration attempt.
+    const operationId = ++authOperationRef.current;
+    console.log('[AUTH] Session restoration effect started', {
+      API_URL,
+      operationId
+    });
+
+    const isCurrentOperation = () =>
+      !cancelled && authOperationRef.current === operationId;
+
+    async function refresh() {
+      try {
+        setLoading(true);
+        console.log('[AUTH] Sending refresh request to:', `${API_URL}/auth/refresh`);
+
+        // Exchange the HttpOnly refresh cookie for a new access token.
+        const refreshResult = await requestRefreshToken(API_URL);
+        // const refreshResponse = await refreshSessionOnce(API_URL);
+        // console.log('[AUTH] Refresh response:', refreshResponse.status);
+
+        // Do not let an outdated request overwrite a newer login/logout.
+        if (!isCurrentOperation()) return;
+
+        if (!refreshResult.ok) {
+          console.error(
+            '[AUTH] Refresh failed:',
+            refreshResult.status,
+            refreshResult.data
+          );
+
+          temporaryStore({ name: 'token' }, 2);
+
+          setAccessToken(null);
+          setUser(null);
+          setPhoneNumbersData([]);
+
+          return;
+        }
+
+        const refreshData = refreshResult.data;
+        const newToken = refreshData.accessToken;
+
+        if (!refreshData.Success || !newToken) {
+          throw new Error(
+            'Refresh response did not contain an access token.'
+          );
+        }
+
+        // Save the newly issued access token.
+        temporaryStore({ name: 'token', value: newToken }, 1);
+
+        // Load the authenticated user's profile.
+        const profileResponse = await fetch(`${API_URL}/auth/refresh`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${newToken}`
+          }
+        });
+
+        if (!isCurrentOperation()) return;
+
+        const profileData = await profileResponse.json();
+        
+        if (!profileResponse.ok || !profileData.Success) {
+          throw new Error('Unable to load the user profile.');
+        }
+        
+        console.log('[AUTH GET] Refresh response:', profileData);
+        setAccessToken(newToken);
+        setUser(profileData.user || null);
+        setPhoneNumbersData(profileData.allData || []);
+      } catch (error) {
+        // Only the latest operation may clear the current session.
+        if (!isCurrentOperation()) return;
+
+        console.error('Authentication restoration failed:', error);
+
+        temporaryStore({ name: 'token' }, 2);
+
+        setAccessToken(null);
+        setUser(null);
+        setPhoneNumbersData([]);
+
+      } finally {
+        if (isCurrentOperation()) {
+          setLoading(false);
+          setAuthReady(true);
+        }
+      }
+    }
+    refresh();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [API_URL]);
 
 
   
@@ -84,7 +250,7 @@ function AuthProvider({ children }) {
 
 
 
-  async function processLL(data) { // Local Login
+  /* async function processLL(data) { // Local Login
     // console.log("Data Entry", data);
 
     // localStorage.setItem('token', data.token)
@@ -95,9 +261,9 @@ function AuthProvider({ children }) {
     
     setUser(data.user);
     setPhoneNumbersData(data.allData);
-  }
+  } */
   
-  function processGL(data) { // Google Login
+  /* function processGL(data) { // Google Login
     // setGateway('google');
     // localStorage.setItem('token', JSON.stringify(data.token))
 
@@ -112,9 +278,54 @@ function AuthProvider({ children }) {
     
     setUser(data.user);
     setPhoneNumbersData(data.allData);
+  } */
+  function processLL(data) {
+    const tokenValue = data?.accessToken || data?.token;
+
+    if (!tokenValue) {
+      console.error('Login response did not contain an access token.');
+      return false;
+    }
+
+    // Invalidate any session-restoration request already in progress.
+    authOperationRef.current += 1;
+
+    temporaryStore({ name: 'token', value: tokenValue }, 1);
+
+    setAccessToken(tokenValue);
+    setUser(data.user || null);
+    setPhoneNumbersData(data.allData || []);
+
+    setLoading(false);
+    setAuthReady(true);
+
+    return true;
   }
 
-  async function logout() {
+  function processGL(data) {
+    const tokenValue = data?.accessToken || data?.token;
+
+    if (!tokenValue) {
+      console.error('Google login response did not contain an access token.');
+      return false;
+    }
+
+    // Invalidate any session-restoration request already in progress.
+    authOperationRef.current += 1;
+
+    temporaryStore({ name: 'token', value: tokenValue }, 1);
+
+    setAccessToken(tokenValue);
+    setUser(data.user || null);
+    setPhoneNumbersData(data.allData || []);
+
+    setLoading(false);
+    setAuthReady(true);
+
+    return true;
+  }
+
+  /* async function logout() {
     // await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
 
     // localStorage.removeItem("token");
@@ -123,6 +334,35 @@ function AuthProvider({ children }) {
     // localStorage.removeItem("user");
     setAccessToken(null);
     setUser(null);
+  } */
+  async function logout() {
+    // Invalidate outstanding session-restoration requests immediately.
+    authOperationRef.current += 1;
+
+    try {
+      const response = await fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        console.error(
+          'Server logout returned HTTP status:',
+          response.status
+        );
+      }
+    } catch (error) {
+      console.error('Server logout request failed:', error);
+    } finally {
+      temporaryStore({ name: 'token' }, 2);
+
+      setAccessToken(null);
+      setUser(null);
+      setPhoneNumbersData([]);
+
+      setLoading(false);
+      setAuthReady(true);
+    }
   }
 
   async function signup(payload) {
@@ -249,6 +489,7 @@ function AuthProvider({ children }) {
     user,
     accessToken,
     loading,
+    authReady,
     loadContent,
     phoneNumbersData
   }, functions: {

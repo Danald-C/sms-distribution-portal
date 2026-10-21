@@ -76,7 +76,7 @@ export default function Dashboard() {
       {!data.loading && (
         <div className="min-h-screen">
           {/* Desktop sidebar */}
-          <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#0b4f8a] text-white shadow-[8px_0_30px_rgba(7,92,69,0.08)] lg:flex">
+          <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col bg-[#0b4f8a] text-white shadow-[8px_0_30px_rgba(7,92,69,0.08)] lg:flex">
             <div className="flex h-20 items-center gap-3 border-b border-white/10 px-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10">
                 <MessageSquare size={20} strokeWidth={2.2} />
@@ -87,7 +87,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex flex-1 flex-col px-3 py-6">
+            <div className="flex flex-1 flex-col px-3 py-6 2xl:py-7">
               <div className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
                 Workspace
               </div>
@@ -222,9 +222,9 @@ export default function Dashboard() {
           )}
 
           {/* Main content */}
-          <main className="lg:pl-64">
+          <main className="lg:pl-[248px]">
             {/* Desktop top bar */}
-            <div className="hidden h-20 items-center justify-between border-b border-[#d9e6f0] bg-white/90 px-8 backdrop-blur lg:flex xl:px-10">
+            <div className="hidden h-[76px] items-center justify-between border-b border-[#d9e6f0] bg-white/95 px-8 shadow-[0_1px_0_rgba(20,127,209,0.05)] backdrop-blur lg:flex xl:px-10 2xl:px-12">
               <div>
                 <div className="text-xs font-medium text-[#8191a2]">Workspace</div>
                 <div className="mt-0.5 text-sm font-semibold text-[#13243a]">
@@ -247,20 +247,20 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 sm:py-7 md:px-8 lg:px-10 lg:py-9">
+            <div className="w-full px-4 py-5 sm:px-6 sm:py-7 md:px-8 lg:px-9 lg:py-8 xl:px-10 2xl:px-12 2xl:py-10">
               {/* Page heading */}
-              <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+              <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between 2xl:mb-9">
                 <div>
                   <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#c9e1ef] bg-[#eaf5fc] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.13em] text-[#0b68ad]">
                     <Sparkles size={12} />
                     Communication workspace
                   </div>
 
-                  <h1 className="text-2xl font-bold tracking-tight text-[#13243a] sm:text-3xl lg:text-[34px]">
+                  <h1 className="text-2xl font-bold tracking-tight text-[#13243a] sm:text-3xl lg:text-[34px] 2xl:text-[38px]">
                     {displayComp === 0 && 'Dashboard'}
                     {displayComp === 1 && 'Profile'}
                     {displayComp === 2 && 'Contacts'}
-                    {displayComp === 3 && 'Contact Groups'}
+                    {displayComp === 3 && 'Contact Groupings'}
                   </h1>
 
                   <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#627487] sm:text-[15px]">
@@ -284,9 +284,9 @@ export default function Dashboard() {
 
               {/* Dashboard */}
               {displayComp === 0 && (
-                <div className="space-y-5 sm:space-y-6">
+                <div className="space-y-5 sm:space-y-6 2xl:space-y-7">
                   {/* Balance / quick action cards */}
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:gap-5">
                     <div className="rounded-2xl border border-[#d9e6f0] bg-white p-5 shadow-[0_8px_30px_rgba(16,70,55,0.05)]">
                       <div className="flex items-start justify-between">
                         <div>
@@ -321,7 +321,7 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-[#d9e6f0] bg-[#0b4f8a] p-5 text-white shadow-[0_8px_30px_rgba(7,92,69,0.16)] sm:col-span-2 xl:col-span-1">
+                    <div className="rounded-2xl border border-[#d9e6f0] bg-[#0b4f8a] p-5 text-white shadow-[0_8px_30px_rgba(20,79,138,0.16)] sm:col-span-2 xl:col-span-1">
                       <p className="text-xs font-medium text-white/60">Workspace status</p>
                       <div className="mt-2 flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full bg-[#39b86b]" />
@@ -334,7 +334,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Existing chart — data and chart behavior preserved */}
-                  <section className="rounded-2xl border border-[#d9e6f0] bg-white p-4 shadow-[0_8px_30px_rgba(16,70,55,0.05)] sm:p-6">
+                  <section className="rounded-2xl border border-[#d9e6f0] bg-white p-4 shadow-[0_8px_30px_rgba(20,79,138,0.06)] sm:p-6 2xl:p-7">
                     <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                       <div>
                         <h2 className="text-base font-bold text-[#13243a] sm:text-lg">
@@ -350,7 +350,7 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="h-[260px] w-full sm:h-[320px]">
+                    <div className="h-[260px] w-full sm:h-[320px] lg:h-[340px] 2xl:h-[380px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={demo}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e1ebf3" />
@@ -386,7 +386,7 @@ export default function Dashboard() {
                   </section>
 
                   {/* Existing notice, retained as functionality/content */}
-                  <div className="rounded-2xl border border-[#c9e1ef] bg-[#eaf5fc] p-4 sm:p-5">
+                  <div className="rounded-2xl border border-[#c9e1ef] bg-[#eaf5fc] p-4 sm:p-5 2xl:p-6">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm font-semibold text-[#0b4f8a]">

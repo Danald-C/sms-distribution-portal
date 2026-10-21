@@ -17,6 +17,7 @@ import ProfilePage from './components/ProfilePage/pp-file.jsx'
 import SignupPage from './components/SignupPage/sp-file.jsx'
 import VerifyContactPage from './components/Verification/Verify-Contact.jsx'
 import ComposeSMS from './components/SmsComposer/sc-file.jsx';
+import VerifyEmail from './pages/VerifyEmail.jsx';
 
 // http://localhost:3000
 
@@ -57,6 +58,7 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />

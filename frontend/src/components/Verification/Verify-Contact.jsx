@@ -21,11 +21,12 @@ export default function VerifyContactPage(){
     // const [storedToken, setStoredToken] = useState(localStorage.getItem("token"));
     const [storedToken, setStoredToken] = useState(functions.temporaryStore({name: "token"}));
 
-    const [countdown, setCountdown] = useState(60)
+    let baseCountDown = 10;
+    const [countdown, setCountdown] = useState(baseCountDown)
     let localIsSending = false
     const [isSending, setIsSending] = useState(localIsSending)
     const [error, setError] = useState('')
-    const [resendAt, setResendAt] = useState(Date.now() + 60 * 1000) // 60 seconds from now
+    const [resendAt, setResendAt] = useState(Date.now() + baseCountDown * 1000) // 60 seconds from now
     
     let localRedirect = {state: false, id: 0, in: 0, to: "/"}
     const [redirect, setRedirect] = useState(localRedirect)
@@ -53,6 +54,7 @@ export default function VerifyContactPage(){
             if(functions.temporaryStore({name: "redirect"}, 0, true)) localRedirect = functions.temporaryStore({name: "redirect"}, 0, true);
             if(!localRedirect.state) defaultValidate();
         }
+      setOtp({...otp, resend: false});
         
         console.log("When do we come here?", localIsSending, localRedirect, otpSent);
         // const RESEND_COOLDOWN = 60
@@ -100,7 +102,7 @@ export default function VerifyContactPage(){
 
       let countDown = Math.max(remaining, 0);
       if(countDown == 0){
-            setOtp({...otp, resend: false});
+        console.log("Countdown is zero, resending OTP is now possible", countDown, isSending);
             setIsSending(false);
         }
         setCountdown(countDown);
@@ -149,13 +151,14 @@ export default function VerifyContactPage(){
         try{
             setLoading(true);
             let numberErrors = functions.validateNumber(number);
-            console.log("Sending OTP", number, numberErrors)
             if(numberErrors.length > 0){
                 numberErrors.map(each => localAlerts.push({number: 0, type: each.type, message: each.message}));
                 // setAlerts(numberErrors);
                 return
             }
-
+            setOtp({...otp, resend: false});
+            console.log("Sending OTP", number, numberErrors)
+            
             /* let response = await fetch(`${data.API_URL}/auth/verify-number`, {
                 method: 'POST',
                 headers: {
@@ -172,7 +175,7 @@ export default function VerifyContactPage(){
             }else{
                 responseData.status.success && setOtpSent(true);
             } */
-           processRequest(number, otp);
+           processRequest(number, {...otp, resend: false});
         }catch(err){
             console.error(err.message || 'Verification failed');
         } finally {
@@ -181,10 +184,10 @@ export default function VerifyContactPage(){
     }
 
     async function processRequest(number, otp){
-        if(otp.code) isSending = true;
+        // if(otp.code) isSending = true;
         
                 console.log("Get user data now..", JSON.stringify({ number, otp }))
-        /* let response = await fetch(`${data.API_URL}/auth/verify-number`, {
+        let response = await fetch(`${data.API_URL}/auth/verify-number`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${storedToken}`,
@@ -193,8 +196,8 @@ export default function VerifyContactPage(){
             // body: JSON.stringify({ process: 'send-otp', number }),
             body: JSON.stringify({ number, otp }),
         })
-        const responseData = await response.json() */
-        const responseData = {status: {complete: false, resent: true, error: {state: false}}, user: {phone_number: '+233558244996'}}
+        const responseData = await response.json()
+        // const responseData = {status: {complete: false, resent: true, error: {state: false}}, user: {phone_number: '+233558244996'}}
 
         /* if (!response.ok) {
             throw new Error(responseData.message || 'Process Failed');
@@ -215,17 +218,12 @@ export default function VerifyContactPage(){
                 setOtpSent(true);
                 setOtp({...otp, resend: responseData.status.resent});
                 // responseData.status.resent && setIsSending(false);
-                
-                /* setCountdown(60);
-                localIsSending = false;
-                setIsSending(localIsSending); */
-                // handleResendOtp(false);
             }
         }
     }
 
-    // const handleResendOtp = async () => {
-    const handleResendOtp = async sendRequest => {
+    const handleResendOtp = async () => {
+    // const handleResendOtp = async sendRequest => {
         if (countdown > 0 || isSending) return
 
         console.log("Yes we just came here..")
@@ -241,14 +239,14 @@ export default function VerifyContactPage(){
             }
             })
             const data = await response.json() */
-        //    processRequest(number, otp);
-           sendRequest && processRequest(number, otp);
+           processRequest(number, otp);
+        //    sendRequest && processRequest(number, otp);
 
             // Start a new 60-second countdown
-            setResendAt(Date.now() + 60 * 1000)
+            setResendAt(Date.now() + baseCountDown * 1000)
 
             // Restart countdown
-            setCountdown(60)
+            setCountdown(baseCountDown)
             setOtp(otp);
             // setResendOTPState();
 
@@ -289,18 +287,19 @@ export default function VerifyContactPage(){
             <div className="max-w-md mx-auto">
             {getAlerts.length > 0 && getAlerts.map(each => (<p>{each.message}</p>))}
             {/* {verified && (<div>Phone Number Verified ✓</div>)} */}
-            {console.log("Page reload", otpSent, countdown, redirect)}
+            {/* {console.log("Page reload", otp)} */}
             {redirect.state && <p>Sorry, something went wrong. Resetting in {redirect.in} seconds... You can <Link to='/signup'>SignIn</Link> again with the same Email.</p>}
+            <form className="bg-white rounded-xl p-6 shadow bg-white p-6 rounded-2xl shadow-lg w-full max-w-md" onSubmit={submit}>
             {
                 !redirect.state && !otpSent && 
-                <form className="bg-white rounded-xl p-6 shadow bg-white p-6 rounded-2xl shadow-lg w-full max-w-md" onSubmit={submit}>
-                    <h3 className="text-2xl font-bold">Add a phone number to {user?.full_name+', '+user?.email || 'your account'}</h3>
-                    <PhoneInput international defaultCountry="GH" value={number} onChange={setNumber} className="border p-3 rounded-lg" autoFocus />
-                    <button className="px-4 py-2 bg-indigo-600 text-white rounded">Verify now</button>
-                </form>
+                    <>
+                        <h3 className="text-2xl font-bold">Add a phone number to {user?.full_name+', '+user?.email || 'your account'}</h3>
+                        <PhoneInput international defaultCountry="GH" value={number} onChange={setNumber} className="border p-3 rounded-lg" autoFocus />
+                        <button className="px-4 py-2 bg-indigo-600 text-white rounded">Verify now</button>
+                    </>
             }
             {
-                !redirect.state && otpSent && (<>{otp.resend && <h2>A new OTP code has been resent.</h2>}<h3 className="text-sm text-gray-500 mt-2">Enter OTP code sent to this number {number}</h3><input className="w-full border rounded-lg px-4 py-3 mt-6" type="text" maxLength={6} inputMode="numeric" value={otp.code} onChange={(e) => setOtp({...otp, code: e.target.value})} placeholder="Enter 6-digit OTP" autoFocus />{otp.code && <button className="w-full mt-4 bg-primary text-white py-3 rounded-lg" onClick={submit}>Verify OTP</button>}
+                !redirect.state && otpSent && (<>{otp.resend && <h2>A new OTP code has been resent.</h2>}<h3 className="text-sm text-gray-500 mt-2">Enter OTP code sent to this number {number}</h3><input className="w-full border rounded-lg px-4 py-3 mt-6" type="text" maxLength={6} inputMode="numeric" value={otp.code} onChange={(e) => setOtp({...otp, code: e.target.value})} placeholder="Enter 6-digit OTP" autoFocus />{otp.code && <button className="w-full mt-4 bg-primary text-white py-3 rounded-lg">Verify OTP</button>}
                 <div  className="text-center mt-5">
                     {countdown > 0 ? (
                         <p className="text-sm text-gray-500">
@@ -312,7 +311,8 @@ export default function VerifyContactPage(){
                         ) : (
                         <button
                             type="button"
-                            onClick={handleResendOtp(true)}
+                            onClick={handleResendOtp}
+                            // onClick={() => handleResendOtp(true)}
                             disabled={isSending}
                             className="text-primary font-semibold"
                         >
@@ -328,6 +328,7 @@ export default function VerifyContactPage(){
                 )}
                 </>)
             }
+                </form>
             </div>
         </>
     )

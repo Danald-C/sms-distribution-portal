@@ -41,7 +41,7 @@ export default function ComposeSMS({props}){
             const responseData = await response.json();
             
             if(responseData.Success){
-                setSendSMSToOS = functions.temporaryStore({name: 'sms-list'}, 0);
+                setSendSMSToOS = functions.temporaryStore({name: 'sms-list'}, 0, true);
                 if(!Object.keys(setSendSMSToOS).length > 0) navigate("/dashboard");
 
                 setSendSMSTo(setSendSMSToOS);
@@ -84,7 +84,7 @@ export default function ComposeSMS({props}){
             setSending(true);
 
             try {
-                // console.log('Success: ', data.accessToken);
+                console.log('Success: ', JSON.stringify({sender, payload}));
                 const response = await fetch(endpointUrl, {
                     // Set the method to POST
                     method: 'POST',
@@ -285,42 +285,208 @@ export default function ComposeSMS({props}){
     }
 
 
-    return(
-        <>
+    return (
+        <div className="mx-auto w-full max-w-6xl space-y-6 text-slate-800">
             {alerts.length > 0 && functions.displayError(alerts)}
-            <h2>Sending SMS to {sendSMSTo.length} Contacts..</h2>
-            <form className="bg-white rounded-xl p-6 shadow" onSubmit={handleSendSMS}>
-                <>
-                    <label htmlFor="personalize"><input id='personalize' type='checkbox' onChange={e => processSlider([e.target.checked, 0], 0)} /> Personalize</label>
-                    {slider.rangePos[1] && <label htmlFor="space-after"><input id='space-after' type='checkbox' onChange={e => processSlider([e.target.checked, 1], 0)} /> Space after</label>}
-                    {slider.rangePos[1] && <input type="range" value={slider.rangePos[0][0]} onChange={e => processSlider([e.target.value, 0], 1, slider)} min="1" max={slider.rangePos[0][1]} />}
-                </>
-                <div>
-                    <em>Must be less or exactly Eleven characters long.</em>
-                    <input type="text" value={sender} onChange={e => senderID(e.target.value)} className="flex-grow p-3 border rounded mb-3" placeholder="From" />
-                </div>
-                {!slider.rangePos[1] && <><textarea rows={4} value={message} onChange={e => changeMessage(e, 0)} className="flex-grow p-3 border rounded mb-3" placeholder="Enter your message here..." />
-                <a href='#' onClick={() => saveDefault()}>Save</a>
-                <button className="px-4 py-2 bg-indigo-600 text-white rounded">{sending ? 'Sending...' : 'Send SMS'}</button></>}
-            </form>
 
-            <form className="bg-white rounded-xl p-6 shadow" onSubmit={handleSendSMS}>
-                {slider.controls[0] && 
-                    <>
-                        {
-                            slider.rangePos[1] && 
-                            
-                            // console.log(payload)
-                        //    functions.displayElements(1, [], payload)
-                            payload.map((eachMess, index) => (
-                                <textarea key={index} value={eachMess.message} onChange={e => changeMessage(e, index)} />
-                            ))
-                        }
-                        {slider.rangePos[1] && <button className="px-4 py-2 bg-indigo-600 text-white rounded">{sending ? 'Sending...' : 'Send SMS'}</button>}
-                    </>
-                }
+            <header className="flex flex-col gap-4 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div>
+                    <p className="mb-2 inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
+                        Communication workspace
+                    </p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                        Compose SMS
+                    </h1>
+                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                        Prepare your message, review the sender name, and send it to your selected contacts.
+                    </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-blue-700 shadow-sm" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z" />
+                        </svg>
+                    </span>
+                    <div>
+                        <p className="text-xs font-medium text-slate-500">Recipients</p>
+                        <p className="text-lg font-bold text-slate-900">{Array.isArray(sendSMSTo) ? sendSMSTo.length : 0} contact{Array.isArray(sendSMSTo) > 1 ? "s" : ""}</p>
+                    </div>
+                </div>
+            </header>
+
+            <form className="space-y-6" onSubmit={handleSendSMS}>
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                    <div className="mb-5">
+                        <h2 className="text-lg font-semibold text-slate-900">Message details</h2>
+                        <p className="mt-1 text-sm text-slate-500">Choose the sender ID and write the message your contacts will receive.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                        <div className="space-y-2">
+                            <label htmlFor="sms-sender" className="block text-sm font-medium text-slate-700">Sender name</label>
+                            <input
+                                id="sms-sender"
+                                type="text"
+                                value={sender}
+                                onChange={e => senderID(e.target.value)}
+                                maxLength={12}
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                placeholder="e.g. DC Group"
+                            />
+                            <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                                <span>Must be no more than 11 characters.</span>
+                                <span className={sender.length > 11 ? "font-semibold text-red-600" : ""}>{sender.length}/11</span>
+                            </div>
+                        </div>
+
+                        {!slider.rangePos[1] && (
+                            <div className="space-y-2">
+                                <label htmlFor="sms-message" className="block text-sm font-medium text-slate-700">Message</label>
+                                <textarea
+                                    id="sms-message"
+                                    rows={6}
+                                    value={message}
+                                    onChange={e => changeMessage(e, 0)}
+                                    className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                    placeholder="Write your SMS message here..."
+                                />
+                                <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                                    <span>{message.length} characters</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => saveDefault()}
+                                        className="font-semibold text-blue-700 transition hover:text-blue-900 hover:underline"
+                                    >
+                                        Save as default message
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50/70 p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <h3 className="text-sm font-semibold text-slate-800">Personalize your message</h3>
+                                <p className="mt-1 text-sm leading-5 text-slate-500">Insert each recipient's name into the message where appropriate.</p>
+                            </div>
+                            <label htmlFor="personalize" className="inline-flex shrink-0 cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+                                <input
+                                    id="personalize"
+                                    type="checkbox"
+                                    checked={Boolean(slider.rangePos[1])}
+                                    onChange={e => processSlider([e.target.checked, 0], 0)}
+                                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                Personalize
+                            </label>
+                        </div>
+
+                        {slider.rangePos[1] && (
+                            <div className="mt-4 space-y-4 border-t border-blue-100 pt-4">
+                                <label htmlFor="space-after" className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                                    <input
+                                        id="space-after"
+                                        type="checkbox"
+                                        checked={Boolean(slider.spaceAfter)}
+                                        onChange={e => processSlider([e.target.checked, 1], 0)}
+                                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    Add space after.
+                                </label>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between gap-3 text-sm">
+                                        <label htmlFor="personalize-position" className="font-medium text-slate-700">Name insertion position</label>
+                                        <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-blue-700">
+                                            Word {slider.rangePos[0][0]}
+                                        </span>
+                                    </div>
+                                    <input
+                                        id="personalize-position"
+                                        type="range"
+                                        value={slider.rangePos[0][0]}
+                                        onChange={e => processSlider([e.target.value, 0], 1, slider)}
+                                        min="1"
+                                        max={Math.max(1, slider.rangePos[0][1])}
+                                        className="w-full accent-blue-700"
+                                    />
+                                    <div className="flex justify-between text-xs text-slate-500">
+                                        <span>Beginning</span>
+                                        <span>End of message</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {!slider.rangePos[1] && (
+                        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                            <button
+                                type="button"
+                                onClick={() => saveDefault(false)}
+                                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={sending}
+                                className="inline-flex items-center justify-center rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {sending ? 'Sending…' : `Send SMS to ${Array.isArray(sendSMSTo) ? sendSMSTo.length : 0} contacts`}
+                            </button>
+                        </div>
+                    )}
+                </section>
+
+                {slider.controls[0] && slider.rangePos[1] && (
+                    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-900">Personalized message preview</h2>
+                                <p className="mt-1 text-sm text-slate-500">Review or edit each recipient's message before sending.</p>
+                            </div>
+                            <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                                {Array.isArray(payload) ? payload.length : 0} messages
+                            </span>
+                        </div>
+
+                        <div className="space-y-4">
+                            {Array.isArray(payload) && payload.map((eachMess, index) => (
+                                <div key={index} className="rounded-xl border border-slate-200 p-4">
+                                    <label htmlFor={`personalized-message-${index}`} className="mb-2 block text-sm font-medium text-slate-700">
+                                        Message {index + 1}{sendSMSTo[index]?.full_name ? ` · ${sendSMSTo[index].full_name}` : ''}
+                                    </label>
+                                    <textarea
+                                        id={`personalized-message-${index}`}
+                                        rows={3}
+                                        value={eachMess.message}
+                                        onChange={e => changeMessage(e, index)}
+                                        className="w-full resize-y rounded-lg border border-slate-300 px-3 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                            <button
+                                type="button"
+                                onClick={() => saveDefault(false)}
+                                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={sending}
+                                className="inline-flex items-center justify-center rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {sending ? 'Sending…' : 'Send personalized SMS'}
+                            </button>
+                        </div>
+                    </section>
+                )}
             </form>
-            <a href='#' onClick={() => saveDefault(false)}>Cancel</a>
-        </>
-    )
+        </div>
+    );
 }

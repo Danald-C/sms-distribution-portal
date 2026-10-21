@@ -16,9 +16,76 @@ const { preSMS_Send } = require('./sms')
 
 const { redis, REUSE_WINDOW_SEC } = require('../lib/redisClient');
 // const { sendReuseAlert } = require('../lib/email');
+
 const tokenStore = require('../lib/tokenStore');
 
+const {
+  REFRESH_TOKEN_EXPIRES_DAYS = '30',
+  REFRESH_COOKIE_NAME = 'sms_refresh',
+  NODE_ENV
+} = process.env;
+
 const defaultUnit = 30;
+
+async function dbQuery(query, params = []) {
+  const result = await db.pool.query(query, params);
+  return result.rows;
+}
+
+function generateRefreshToken() {
+  return crypto.randomBytes(48).toString('hex');
+}
+
+function setRefreshCookie(res, tokenId, tokenPlain) {
+  const days = Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30;
+
+  res.cookie(
+    REFRESH_COOKIE_NAME,
+    tokenStore.makeCookieValue(tokenId, tokenPlain),
+    {
+      httpOnly: true,
+      secure: NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: days * 24 * 60 * 60 * 1000,
+      path: '/'
+    }
+  );
+}
+
+function clearRefreshCookie(res) {
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
+  });
+}
+
+async function issueRefreshCookie(req, res, userId) {
+  if (!userId) {
+    throw new Error('Cannot issue refresh token without a user ID');
+  }
+
+  const tokenPlain = generateRefreshToken();
+  const tokenId = uuidv4();
+
+  const days = Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30;
+
+  const expiresAt = new Date(
+    Date.now() + days * 24 * 60 * 60 * 1000
+  );
+
+  await tokenStore.storeRefreshTokenRow({
+    user_id: userId,
+    tokenPlain,
+    tokenId,
+    ip: req.ip || null,
+    userAgent: req.get('User-Agent') || null,
+    expiresAt
+  });
+
+  setRefreshCookie(res, tokenId, tokenPlain);
+}
 
 
 
@@ -31,29 +98,6 @@ function signAccessToken(user) {
 /* function generateRefreshToken() {
   return crypto.randomBytes(48).toString('hex')
 } */
-
-/* function setRefreshCookie(res, tokenPlain) {
-  const days = Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30
-  const maxAge = days * 24 * 60 * 60 * 1000
-  res.cookie(REFRESH_COOKIE_NAME, tokenPlain, {
-    httpOnly: true,
-    secure: NODE_ENV === 'production',
-    sameSite: 'Lax',
-    maxAge,
-    path: '/'
-  })
-} */
-function setRefreshCookie(res, tokenId, tokenPlain) {
-  const days = Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30;
-  const maxAge = days * 24 * 60 * 60 * 1000;
-  res.cookie(REFRESH_COOKIE_NAME, `${tokenId}.${tokenPlain}`, {
-    httpOnly: true,
-    secure: NODE_ENV === 'production',
-    sameSite: 'Lax',
-    maxAge,
-    path: '/'
-  });
-}
 
 /* Store hashed refresh token and meta, return DB record (id) */
 async function storeRefreshToken({ user_id, tokenPlain, ip=null, userAgent=null, expiresAt=null, replacedBy=null }) {
@@ -90,23 +134,10 @@ async function revokeRefreshTokenById(id) {
   res.json({ message: 'ok', user: req.user })
 }) */
 
-router.post('/google-oauth', async (req, res)=> {
+/* router.post('/google-oauth', async (req, res)=> {
   try{
     let oAuth_res = await oAuth(req, res); // Process Google Credential
     
-    /* let userEmail = oAuth_res.user.email;
-    let userData = await db.functions.tableGetRows("users", { email: userEmail }), thisUser = userData.data[0], newUser = false;
-    // console.log(thisUser)
-    if(!thisUser){
-      thisUser = await db.functions.tableCreateRow("users", { name: oAuth_res.user.name, email: userEmail, google_id: oAuth_res.user.google_id, profile_picture: oAuth_res.user.picture })
-
-      newUser = true;
-    }else{
-      if(!thisUser.phone_verified) newUser = true;
-    }
-    
-    let user = {user_id: thisUser.id, ...oAuth_res.user}
-    let jwtToken = signAccessToken({user}) */
     let authentication = await authenticateUser({ full_name: oAuth_res.user.name, email: oAuth_res.user.email, google_id: oAuth_res.user.google_id, profile_picture: oAuth_res.user.picture });
     // let returnedData = {success: oAuth_res.success, token: jwtToken, user, newUser };
     let returnedData = {Success: oAuth_res.success, token: authentication.jwtToken, user: authentication.user, allData: authentication.allData, newUser: authentication.newUser };
@@ -116,6 +147,51 @@ router.post('/google-oauth', async (req, res)=> {
   }catch(error){
     console.log('oAuth_err', error)
     res.json( {error} )
+  }
+}); */
+router.post('/google-oauth', async (req, res) => {
+  try {
+    // Validate the Google credential.
+    const oAuth_res = await oAuth(req, res);
+
+    if (!oAuth_res || !oAuth_res.success || !oAuth_res.user) {
+      return res.status(401).json({
+        Success: false,
+        error: 'Google authentication failed'
+      });
+    }
+
+    // Find or create the application user.
+    const authentication = await authenticateUser({
+      full_name: oAuth_res.user.name,
+      email: oAuth_res.user.email,
+      google_id: oAuth_res.user.google_id,
+      profile_picture: oAuth_res.user.picture
+    });
+
+    // Issue a refresh cookie for the authenticated user.
+    await issueRefreshCookie(
+      req,
+      res,
+      authentication.user.user_id
+    );
+
+    return res.json({
+      Success: true,
+      token: authentication.jwtToken,
+      user: authentication.user,
+      allData: authentication.allData,
+      newUser: authentication.newUser
+    });
+
+  } catch (error) {
+    // Do not log access tokens or refresh tokens.
+    console.error('Google OAuth error:', error.message);
+
+    return res.status(500).json({
+      Success: false,
+      error: 'Google authentication failed'
+    });
   }
 });
 
@@ -167,26 +243,243 @@ async function authenticateUser(user) {
 }
 
 // Register
+// Register a new email/password account.
 router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  const hash = await bcrypt.hash(password, 12);
-  const userRes = await db.pool.query('INSERT INTO users(name,email,password_hash) VALUES($1,$2,$3) RETURNING id,email', [name, email, hash]);
-  const user = userRes.rows[0];
-  // create email verification token
-  const token = crypto.randomBytes(32).toString('hex');
-  await db.pool.query('INSERT INTO email_tokens(token,user_id,type,expires_at) VALUES($1,$2,$3,$4)', [token, user.id, 'verification', new Date(Date.now()+1000*60*60*24)]);
-  // send verification email with link: https://app/verify?token=...
-  res.json({ ok: true });
+  const client = await db.pool.connect();
+
+  try {
+    const name = String(req.body?.name || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = req.body?.password;
+
+    // Validate the submitted fields.
+    if (!name || name.length > 150) {
+      return res.status(400).json({
+        error: 'Please provide a valid name.'
+      });
+    }
+
+    if (
+      !email ||
+      email.length > 254 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
+      return res.status(400).json({
+        error: 'Please provide a valid email address.'
+      });
+    }
+
+    if (
+      typeof password !== 'string' ||
+      password.length < 8 ||
+      password.length > 128
+    ) {
+      return res.status(400).json({
+        error: 'Your password must be between 8 and 128 characters.'
+      });
+    }
+
+    // Check email configuration before creating an account.
+    if (!process.env.EMAIL_ADDRESS || !process.env.EMAIL_PASSWORD) {
+      console.error('Registration email configuration is missing.');
+
+      return res.status(503).json({
+        error: 'Email verification is temporarily unavailable.'
+      });
+    }
+
+    // Hash the password and create a one-time verification token.
+    const passwordHash = await bcrypt.hash(password, 12);
+    const rawToken = crypto.randomBytes(32).toString('hex');
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await client.query('BEGIN');
+
+    // Use the actual database columns.
+    // google_id is required by the existing schema, even for local accounts.
+    const userResult = await client.query(
+      `INSERT INTO public.users
+         (full_name, email, password, google_id, email_verified)
+       VALUES ($1, $2, $3, $4, FALSE)
+       RETURNING id, full_name, email`,
+      [
+        name,
+        email,
+        passwordHash,
+        `local_${uuidv4()}`
+      ]
+    );
+
+    const user = userResult.rows[0];
+
+    // Store only the hash, never the raw verification token.
+    await client.query(
+      `INSERT INTO public.email_tokens
+         (token_hash, user_id, type, expires_at)
+       VALUES ($1, $2, 'verification', $3)`,
+      [tokenHash, user.id, expiresAt]
+    );
+
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      'https://www.dcsmsportal.com'
+    ).replace(/\/+$/, '');
+
+    const verificationUrl =
+      `${frontendUrl}/verify-email?token=${encodeURIComponent(rawToken)}`;
+
+    // Reuse the email credentials already configured in your application.
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_ADDRESS,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
+
+    // Send the verification email before committing the new account.
+    // If email delivery fails, the transaction is rolled back.
+    await transporter.sendMail({
+      from: process.env.EMAIL_ADDRESS,
+      to: user.email,
+      subject: 'Verify your DC SMS Portal email address',
+      text:
+        `Hello ${user.full_name},\n\n` +
+        `Please verify your email address by opening this link:\n` +
+        `${verificationUrl}\n\n` +
+        `This link expires in 24 hours.\n\n` +
+        `If you did not request this account, you can ignore this email.`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
+          <h2>Verify your email address</h2>
+          <p>Hello,</p>
+          <p>
+            Thank you for registering with DC SMS Distribution Portal.
+            Please verify your email address to activate your account.
+          </p>
+          <p>
+            <a
+              href="${verificationUrl}"
+              style="display:inline-block;padding:12px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px"
+            >
+              Verify email address
+            </a>
+          </p>
+          <p>This link expires in 24 hours.</p>
+          <p>
+            If you did not request this account, you can ignore this email.
+          </p>
+        </div>
+      `
+    });
+
+    await client.query('COMMIT');
+
+    return res.status(201).json({
+      ok: true,
+      message: 'Registration successful. Please check your email to verify your account.'
+    });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+
+    if (error.code === '23505') {
+      return res.status(409).json({
+        error: 'An account with this email address already exists.'
+      });
+    }
+
+    console.error('Registration error:', error.message);
+
+    return res.status(500).json({
+      error: 'Registration failed. Please try again.'
+    });
+  } finally {
+    client.release();
+  }
 });
 
-// Verify email
+
+// Verify an email address using a one-time token.
 router.post('/verify-email', async (req, res) => {
-  const { token } = req.body;
-  const t = await db.pool.query('SELECT user_id FROM email_tokens WHERE token=$1 AND type=$2 AND expires_at>now()', [token, 'verification']);
-  if (t.rowCount === 0) return res.status(400).json({ error: 'Invalid token' });
-  await db.pool.query('UPDATE users SET email_verified=true WHERE id=$1', [t.rows[0].user_id]);
-  await db.pool.query('DELETE FROM email_tokens WHERE token=$1', [token]);
-  res.json({ ok: true });
+  const client = await db.pool.connect();
+
+  try {
+    const token = req.body?.token;
+
+    if (
+      typeof token !== 'string' ||
+      !/^[a-f0-9]{64}$/i.test(token)
+    ) {
+      return res.status(400).json({
+        error: 'The verification link is invalid or expired.'
+      });
+    }
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    await client.query('BEGIN');
+
+    const tokenResult = await client.query(
+      `SELECT user_id
+       FROM public.email_tokens
+       WHERE token_hash = $1
+         AND type = 'verification'
+         AND expires_at > NOW()
+       FOR UPDATE`,
+      [tokenHash]
+    );
+
+    if (tokenResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+
+      return res.status(400).json({
+        error: 'The verification link is invalid or expired.'
+      });
+    }
+
+    const userId = tokenResult.rows[0].user_id;
+
+    await client.query(
+      `UPDATE public.users
+       SET email_verified = TRUE,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [userId]
+    );
+
+    // Remove the token so it cannot be reused.
+    await client.query(
+      `DELETE FROM public.email_tokens
+       WHERE token_hash = $1`,
+      [tokenHash]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
+      ok: true,
+      message: 'Your email has been verified. You can now sign in.'
+    });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+
+    console.error('Email verification error:', error.message);
+
+    return res.status(500).json({
+      error: 'Email verification failed. Please try again.'
+    });
+  } finally {
+    client.release();
+  }
 });
 
 router.get('/get-user', Middlewares.verifyJWTMiddleware, async (req, res) => {
@@ -428,242 +721,141 @@ async function getPhoneNumbers(page=1, limit=10, user_id, table){
 }
 
 // Refresh
-/* router.post('/refresh', express.json(), async (req, res) => {
-  const token = req.cookies.refresh_token;
-  if (!token) return res.status(401).end();
+// Refresh access token using the HttpOnly refresh cookie.
+router.post('/refresh', async (req, res) => {
   try {
-    const payload = jwt.verify(token, REFRESH_SECRET);
-    const t = await db.pool.query('SELECT user_id FROM refresh_tokens WHERE token=$1 AND expires_at>now()', [token]);
-    if (t.rowCount===0) return res.status(401).end();
-    const user = await db.pool.query('SELECT id,name,email,role FROM users WHERE id=$1', [payload.sub]);
-    const accessToken = signAccess(user.rows[0]);
-    res.json({ accessToken, user: user.rows[0] });
-  } catch (e) { return res.status(401).end(); }
-});
+    const cookieValue = req.cookies?.[REFRESH_COOKIE_NAME];
 
-// REFRESH TOKEN ENDPOINT
-router.post("/refresh", async (req, res) => {
-  try {
-    const { refreshToken } = req.body;
-    // const refreshToken = req.cookies.refresh_token;
+    if (!cookieValue) {
+      clearRefreshCookie(res);
 
-    if (!refreshToken) {
-      return res.status(400).json({ message: "Refresh token is required" });
-    }
-    // if (!refreshToken) return res.status(401).end();
-
-    // 1. Check if refresh token exists in DB
-    const [rows] = await db.execute(
-      "SELECT * FROM user_tokens WHERE refresh_token = ? LIMIT 1",
-      [refreshToken]
-    );
-
-    if (!rows.length) {
-      return res.status(401).json({ message: "Invalid refresh token" });
+      return res.status(401).json({
+        error: 'Refresh token missing'
+      });
     }
 
-    const tokenRecord = rows[0];
+    const separator = cookieValue.indexOf('.');
 
-    // 2. Verify refresh token signature
-    jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err) => {
-      if (err) return res.status(401).json({ message: "Expired refresh token" });
-    });
+    if (separator <= 0 || separator === cookieValue.length - 1) {
+      clearRefreshCookie(res);
 
-    // 3. Generate a new access token
-    const newAccessToken = jwt.sign({ userId: tokenRecord.user_id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
-
-    res.json({
-      accessToken: newAccessToken,
-    });
-  } catch (error) {
-    console.error("Refresh error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-router.post('/refresh', express.json(), async (req, res) => {
-  try {
-    const cookieToken = req.cookies && req.cookies[REFRESH_COOKIE_NAME]
-    const bodyToken = req.body && req.body.refreshToken
-    const tokenPlain = cookieToken || bodyToken
-
-    if (!tokenPlain) return res.status(400).json({ error: 'No refresh token provided' })
-
-    // We need to find which user this token belongs to.
-    // Strategy: scan recent refresh_tokens rows and compare hashes for every user.
-    // Optimization: if you store a token identifier in the cookie (e.g. token id), use that.
-    // For simplicity: query most recent tokens and compare.
-    // We'll fetch tokens from DB where not revoked and not expired.
-    const candidateRows = await dbQuery(
-      `SELECT id, user_id, token_hash, revoked, expires_at FROM refresh_tokens
-       WHERE revoked = false
-       ORDER BY created_at DESC
-       LIMIT 1000`
-    )
-
-    let found = null
-    for (const r of candidateRows) {
-      if (await bcrypt.compare(tokenPlain, r.token_hash)) {
-        found = r
-        break
-      }
+      return res.status(401).json({
+        error: 'Invalid refresh token format'
+      });
     }
 
-    if (!found) {
-      return res.status(401).json({ error: 'Invalid or revoked refresh token' })
-    }
-
-    // check expiry
-    if (found.expires_at && new Date(found.expires_at) < new Date()) {
-      // revoke as safety
-      await revokeRefreshTokenById(found.id)
-      return res.status(401).json({ error: 'Refresh token expired' })
-    }
-
-    // At this point, we have a valid refresh token row
-    // Load user
-    const users = await dbQuery('SELECT * FROM users WHERE id = $1 LIMIT 1', [found.user_id])
-    const user = users[0]
-    if (!user) {
-      await revokeRefreshTokenById(found.id)
-      return res.status(401).json({ error: 'User not found' })
-    }
-
-    // ROTATE: generate new refresh token, store it, mark old as revoked and set replaced_by
-    const newRefreshPlain = generateRefreshToken()
-    const expiresAt = new Date(Date.now() + (Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30) * 24 * 60 * 60 * 1000).toISOString()
-
-    const newRow = await dbQuery(
-      `INSERT INTO refresh_tokens (user_id, token_hash, ip, user_agent, created_at, expires_at, revoked, replaced_by)
-       VALUES ($1,$2,$3,$4,now(),$5,false,$6) RETURNING id`,
-      [user.id, await bcrypt.hash(newRefreshPlain, 10), req.ip || null, req.get('User-Agent') || null, expiresAt, found.id]
-    )
-
-    // revoke the old
-    await dbQuery('UPDATE refresh_tokens SET revoked = true, revoked_at = now() WHERE id = $1', [found.id])
-
-    // issue new access token
-    const accessToken = signAccessToken(user)
-
-    // set cookie with new refresh token
-    setRefreshCookie(res, newRefreshPlain)
-
-    res.json({ accessToken })
-  } catch (err) {
-    console.error('refresh error', err)
-    res.status(500).json({ error: 'Server error' })
-  }
-}) */
-/* -------- refresh with reuse detection -------- */
-/* router.post('/refresh', express.json(), async (req, res) => {
-  try {
-    const cookie = req.cookies && req.cookies[REFRESH_COOKIE_NAME];
-    const bodyToken = req.body && req.body.refreshToken;
-    const raw = cookie || bodyToken;
-    if (!raw) return res.status(400).json({ error: 'No refresh token provided' });
-
-    const idx = raw.indexOf('.');
-    if (idx === -1) return res.status(400).json({ error: 'Malformed token' });
-    const tokenId = raw.slice(0, idx);
-    const tokenPlain = raw.slice(idx + 1);
+    const tokenId = cookieValue.slice(0, separator);
+    const tokenPlain = cookieValue.slice(separator + 1);
 
     const row = await tokenStore.getRefreshRowByTokenId(tokenId);
-    if (!row) return res.status(401).json({ error: 'Invalid refresh token' });
+
+    if (!row) {
+      clearRefreshCookie(res);
+
+      return res.status(401).json({
+        error: 'Invalid refresh token'
+      });
+    }
 
     if (row.revoked) {
-      // token id exists but is revoked — suspicious reuse attempt
-      // increment reuse counter in Redis and trigger alert if threshold exceeded
-      const reuseKey = `reuse:${tokenId}`;
-      const count = await redis.incr(reuseKey);
-      await redis.expire(reuseKey, REUSE_WINDOW_SEC);
+      clearRefreshCookie(res);
 
-      // if repeated reuse (e.g. >3) escalate
-      if (count >= 2) {
-        // revoke all tokens for user and log incident
-        await tokenStore.revokeAllTokensForUser(row.user_id);
-        await dbQuery('INSERT INTO auth_incidents (user_id, incident_type, detail) VALUES ($1,$2,$3)', [
-          row.user_id,
-          'refresh_token_reuse_revoked',
-          JSON.stringify({ tokenId, ip: req.ip, userAgent: req.get('User-Agent'), reason: 'reused_revoked_token' })
-        ]);
-
-        // notify admin
-        try {
-          await sendReuseAlert({
-            userId: row.user_id,
-            ip: req.ip,
-            device: req.get('User-Agent'),
-            tokenId,
-            note: `Revoked all sessions after ${count} reuse attempts`
-          });
-        } catch (e) {
-          console.error('sendReuseAlert failed', e);
-        }
-
-        return res.status(401).json({ error: 'Refresh token reuse detected. All sessions revoked.' });
-      }
-
-      return res.status(401).json({ error: 'Refresh token revoked' });
+      return res.status(401).json({
+        error: 'Refresh token has been revoked'
+      });
     }
 
-    if (row.expires_at && new Date(row.expires_at) < new Date()) {
+    if (new Date(row.expires_at) <= new Date()) {
       await tokenStore.revokeRefreshRowByTokenId(tokenId);
-      return res.status(401).json({ error: 'Refresh token expired' });
+      clearRefreshCookie(res);
+
+      return res.status(401).json({
+        error: 'Refresh token expired'
+      });
     }
 
-    // verify hash match
-    const match = await bcrypt.compare(tokenPlain, row.token_hash);
-    if (!match) {
-      // tokenId exists but tokenPlain doesn't match -> reuse attempt
-      // action: revoke all tokens for user, log incident, send email
-      await tokenStore.revokeAllTokensForUser(row.user_id);
-      await dbQuery('INSERT INTO auth_incidents (user_id, incident_type, detail) VALUES ($1,$2,$3)', [
-        row.user_id,
-        'refresh_token_reuse_detected',
-        JSON.stringify({ tokenId, ip: req.ip, userAgent: req.get('User-Agent') })
-      ]);
+    const tokenMatches = await bcrypt.compare(
+      tokenPlain,
+      row.token_hash
+    );
 
-      try {
-        await sendReuseAlert({
-          userId: row.user_id,
-          ip: req.ip,
-          device: req.get('User-Agent'),
-          tokenId,
-          note: 'Token id seen with mismatched token value (possible replay). All sessions revoked.'
-        });
-      } catch (e) {
-        console.error('sendReuseAlert failed', e);
-      }
+    if (!tokenMatches) {
+      clearRefreshCookie(res);
 
-      return res.status(401).json({ error: 'Refresh token reuse detected. All sessions revoked.' });
+      return res.status(401).json({
+        error: 'Invalid refresh token'
+      });
     }
 
-    // If we reach here, token is valid. ROTATE: create new token pair and revoke old.
-    const newTokenPlain = crypto.randomBytes(48).toString('hex');
-    const newTokenId = uuidv4();
-    const expiresAt = new Date(Date.now() + (Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30) * 24*60*60*1000).toISOString();
+    const users = await dbQuery(
+      `SELECT id, full_name, email, role
+       FROM public.users
+       WHERE id = $1
+       LIMIT 1`,
+      [row.user_id]
+    );
 
-    await tokenStore.storeRefreshTokenRow({ user_id: row.user_id, tokenPlain: newTokenPlain, tokenId: newTokenId, ip: req.ip || null, userAgent: req.get('User-Agent') || null, expiresAt, replacedBy: tokenId });
-
-    await tokenStore.revokeRefreshRowByTokenId(tokenId);
-
-    // issue new access token
-    const users = await dbQuery('SELECT * FROM users WHERE id = $1 LIMIT 1', [row.user_id]);
     const user = users[0];
+
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+      await tokenStore.revokeRefreshRowByTokenId(tokenId);
+      clearRefreshCookie(res);
+
+      return res.status(401).json({
+        error: 'User not found'
+      });
     }
-    const accessToken = signAccessToken(user);
 
-    // set new cookie
+    const newTokenId = uuidv4();
+    const newTokenPlain = generateRefreshToken();
+
+    const expiresAt = new Date(
+      Date.now() +
+      (Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30) *
+      24 * 60 * 60 * 1000
+    );
+
+    await tokenStore.rotateRefreshToken({
+      oldTokenId: tokenId,
+      userId: user.id,
+      tokenPlain: newTokenPlain,
+      tokenId: newTokenId,
+      ip: req.ip || null,
+      userAgent: req.get('User-Agent') || null,
+      expiresAt
+    });
+
+    const accessToken = signAccessToken({
+      user_id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      role: user.role
+    });
+
     setRefreshCookie(res, newTokenId, newTokenPlain);
-    res.json({ accessToken });
-  } catch (err) {
-    console.error('refresh error', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-}); */
 
-router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
+    return res.json({
+      Success: true,
+      accessToken
+    });
+  } catch (error) {
+    if (error.message === 'REFRESH_TOKEN_INVALID') {
+      clearRefreshCookie(res);
+
+      return res.status(401).json({
+        error: 'Refresh token is no longer valid'
+      });
+    }
+
+    console.error('refresh error:', error);
+
+    return res.status(500).json({
+      error: 'Unable to refresh session'
+    });
+  }
+});
+
+/* router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
   try{
     // let phoneNumbers = await getPhoneNumbers(1, 10, req.user.user.user_id, "phone_numbers");
     // let phone_number_groups = await getPhoneNumbers(1, 10, req.user.user.user_id, "phone_number_groups");
@@ -681,7 +873,8 @@ router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
       db.functions.tableGetRows("pngroups_and_pn_association", { user_id })
     ]);
 
-    const date1 = new Date(thisUser.data[0].unit_1_date);
+    // const date1 = new Date(thisUser.data[0].unit_1_date);
+    const date1 = new Date(thisUser.data[0].unit_1_created_at);
     const date2 = new Date('2026-07-15');
     // Subtracting dates returns the difference in milliseconds
     const diffInMs = Math.abs(date2 - date1);
@@ -696,6 +889,95 @@ router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
     res.json({Success: true, user: req.user, allData: {user_info: {unit_1: thisUser.data[0].unit_1, unit_2: thisUser.data[0].unit_2}, phone_numbers, phone_number_groups, phoneNumGrpAssociations}});
   }catch(error){
     res.json( {Success: false, error: 'Unfortunately, this process failed. '+ error} );
+  }
+}); */
+// Load the authenticated user's profile and dashboard data.
+router.get('/refresh', Middlewares.verifyJWTMiddleware, async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+
+    let userResult = await db.functions.tableGetRows(
+      'users',
+      { id: user_id }
+    );
+
+    let thisUser = userResult?.data?.[0];
+
+    if (!thisUser) {
+      return res.status(404).json({
+        Success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Reset monthly SMS units after 31 days.
+    const lastUnitDate = thisUser.unit_1_created_at
+      ? new Date(thisUser.unit_1_created_at)
+      : null;
+
+    const now = new Date();
+
+    if (
+      !lastUnitDate ||
+      Number.isNaN(lastUnitDate.getTime()) ||
+      now.getTime() - lastUnitDate.getTime() >= 31 * 24 * 60 * 60 * 1000
+    ) {
+      await db.functions.tableUpdateRow('users', {
+        id: user_id,
+        unit_1: defaultUnit,
+        unit_1_created_at: now
+      });
+
+      // Reload the user so the response contains updated values.
+      userResult = await db.functions.tableGetRows(
+        'users',
+        { id: user_id }
+      );
+
+      thisUser = userResult?.data?.[0];
+
+      if (!thisUser) {
+        return res.status(404).json({
+          Success: false,
+          error: 'User not found after credit update'
+        });
+      }
+    }
+
+    const [
+      phone_numbers,
+      phone_number_groups,
+      phoneNumGrpAssociations
+    ] = await Promise.all([
+      getPhoneNumbers(1, 10, user_id, 'phone_numbers'),
+      getPhoneNumbers(1, 10, user_id, 'phone_number_groups'),
+      db.functions.tableGetRows(
+        'pngroups_and_pn_association',
+        { user_id }
+      )
+    ]);
+
+    return res.json({
+      Success: true,
+      user: req.user,
+      allData: {
+        user_info: {
+          unit_1: thisUser.unit_1,
+          unit_2: thisUser.unit_2
+        },
+        phone_numbers,
+        phone_number_groups,
+        phoneNumGrpAssociations
+      }
+    });
+
+  } catch (error) {
+    console.error('GET /auth/refresh error:', error);
+
+    return res.status(500).json({
+      Success: false,
+      error: 'Unable to load user profile'
+    });
   }
 });
 
@@ -748,90 +1030,134 @@ DC Group</p>
 });
 
 // Login
+// Login
 router.post('/login', express.json(), async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Missing email or password' })
-    // const r = await db.pool.query('SELECT id,name,email,password_hash,role,email_verified FROM users WHERE email=$1', [email]);
-    const users = await dbQuery('SELECT * FROM users WHERE email = $1 LIMIT 1', [email])
-    if (users.rowCount === 0) return res.status(401).json({ error: 'Invalid credentials' });
-    const u = users.rows[0];
-    // const user = users[0]
-    if (!u || !u.password_hash) return res.status(401).json({ error: 'Invalid credentials' })
-    if (!u.email_verified) return res.status(403).json({ error: 'Verify email first' });
-    const ok = await bcrypt.compare(password, u.password_hash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-    const accessToken = signAccessToken(user)
-    /* const accessToken = signAccess(u);
-    const refreshToken = signRefresh(u);
-    // store refresh token
-    await db.pool.query('INSERT INTO refresh_tokens(token,user_id,expires_at) VALUES($1,$2,$3)', [refreshToken, u.id, new Date(Date.now()+30*24*3600*1000)]); */
-    // generate refresh token, store hashed
-    const refreshTokenPlain = generateRefreshToken()
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Missing email or password'
+      });
+    }
+
+    // Fetch the user using the actual database schema.
+    const users = await dbQuery(
+      `SELECT id, full_name, email, password, role, email_verified
+       FROM public.users
+       WHERE email = $1
+       LIMIT 1`,
+      [email]
+    );
+
+    const user = users[0];
+
+    if (!user || !user.password) {
+      return res.status(401).json({
+        error: 'Invalid credentials'
+      });
+    }
+
+    // Preserve the existing email verification requirement.
+    if (!user.email_verified) {
+      return res.status(403).json({
+        error: 'Verify email first'
+      });
+    }
+
+    // Verify the submitted password against the stored hash.
+    const passwordMatches = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        error: 'Invalid credentials'
+      });
+    }
+
+    // Sign an access token using the claim structure
+    // expected by the existing authentication middleware.
+    const accessToken = signAccessToken({
+      user_id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      role: user.role
+    });
+
+    // Generate one refresh token and one unique token ID.
+    const tokenPlain = generateRefreshToken();
     const tokenId = uuidv4();
-    const expiresAt = new Date(Date.now() + (Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30) * 24 * 60 * 60 * 1000).toISOString()
-    await tokenStore.storeRefreshTokenRow({ user_id: u.id, refreshTokenPlain, tokenId, ip: req.ip || null, userAgent: req.get('User-Agent') || null, expiresAt });
-    await storeRefreshToken({
-      user_id: u.id,
-      tokenPlain: refreshTokenPlain,
-      ip: req.ip || req.headers['x-forwarded-for'] || null,
+
+    const expiresAt = new Date(
+      Date.now() +
+      (Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30) *
+      24 * 60 * 60 * 1000
+    );
+
+    // Store the hashed refresh token exactly once.
+    await tokenStore.storeRefreshTokenRow({
+      user_id: user.id,
+      tokenPlain,
+      tokenId,
+      ip: req.ip || null,
       userAgent: req.get('User-Agent') || null,
       expiresAt
-    })
+    });
 
-    // set cookie and respond
-    setRefreshCookie(res, refreshTokenPlain)
-    // set HttpOnly cookie with refresh token
-    // res.cookie('refresh_token', refreshToken, { httpOnly: true, secure: true, sameSite: 'Strict', maxAge: 30*24*3600*1000 });
-    res.json({ accessToken, user: { id: u.id, name: u.name, email: u.email, role: u.role } });
-  }catch(err){
-    console.error('login error', err)
-    res.status(500).json({ error: 'Server error' })
+    // Set the HttpOnly cookie in tokenId.tokenPlain format.
+    setRefreshCookie(res, tokenId, tokenPlain);
+
+    // Return the access token and public user information.
+    return res.json({
+      Success: true,
+      accessToken,
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    console.error('login error:', error);
+
+    return res.status(500).json({
+      error: 'Server error'
+    });
   }
 });
 
 // Logout
-/* router.post('/logout', async (req, res) => {
-  const token = req.cookies.refresh_token;
-  if (token) await db.pool.query('DELETE FROM refresh_tokens WHERE token=$1', [token]);
-  res.clearCookie('refresh_token');
-  res.json({ ok: true });
-}); */
+// Logout and revoke the current refresh token.
 router.post('/logout', async (req, res) => {
   try {
-    const cookieToken = req.cookies && req.cookies[REFRESH_COOKIE_NAME]
-    const bodyToken = req.body && req.body.refreshToken
-    const tokenPlain = cookieToken || bodyToken
-    if (!tokenPlain) {
-      const idx = tokenPlain.indexOf('.');
-      // still clear cookie
-      res.clearCookie(REFRESH_COOKIE_NAME, { path: '/' })
-      if (idx !== -1) {
-        const tokenId = tokenPlain.slice(0, idx);
+    const cookieValue = req.cookies?.[REFRESH_COOKIE_NAME];
+
+    if (cookieValue) {
+      const separator = cookieValue.indexOf('.');
+
+      if (separator > 0) {
+        const tokenId = cookieValue.slice(0, separator);
+
         await tokenStore.revokeRefreshRowByTokenId(tokenId);
       }
-      return res.json({ ok: true })
     }
 
-    // Find and revoke
-    const candidateRows = await dbQuery(
-      `SELECT id, user_id, token_hash FROM refresh_tokens ORDER BY created_at DESC LIMIT 1000`
-    )
-    for (const r of candidateRows) {
-      if (await bcrypt.compare(tokenPlain, r.token_hash)) {
-        await revokeRefreshTokenById(r.id)
-        break
-      }
-    }
+    clearRefreshCookie(res);
 
-    res.clearCookie(REFRESH_COOKIE_NAME, { path: '/' })
-    res.json({ ok: true })
-  } catch (err) {
-    console.error('logout error', err)
-    res.status(500).json({ error: 'Server error' })
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('logout error:', error);
+
+    clearRefreshCookie(res);
+
+    return res.status(500).json({
+      error: 'Unable to complete logout'
+    });
   }
-})
-
-// export default router;
+});
 
 module.exports = router

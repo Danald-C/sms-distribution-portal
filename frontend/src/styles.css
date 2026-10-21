@@ -1,7 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/* Global typography only. Keep component styling in Tailwind utilities. */
 body {
-    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
