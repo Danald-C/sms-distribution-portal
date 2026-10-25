@@ -35,7 +35,7 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-function requestRefreshToken(API_URL) {
+export function requestRefreshToken(API_URL) {
   if (!refreshRequestPromise) {
     refreshRequestPromise = fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
@@ -136,25 +136,26 @@ function AuthProvider({ children }) {
     let cancelled = false;
 
     // Identify this particular restoration attempt.
-    const operationId = ++authOperationRef.current;
-    console.log('[AUTH] Session restoration effect started', {
+    // const operationId = ++authOperationRef.current;
+    /* console.log('[AUTH] Session restoration effect started', {
       API_URL,
       operationId
-    });
+    }); */
 
-    const isCurrentOperation = () =>
-      !cancelled && authOperationRef.current === operationId;
+    // const isCurrentOperation = () => !cancelled && authOperationRef.current === operationId;
+    const isCurrentOperation = () => !cancelled && authOperationRef.current === ++authOperationRef.current;
 
     async function refresh() {
       try {
         setLoading(true);
-        console.log('[AUTH] Sending refresh request to:', `${API_URL}/auth/refresh`);
+        // console.log('[AUTH] Sending refresh request to:', `${API_URL}/auth/refresh`);
 
         // Exchange the HttpOnly refresh cookie for a new access token.
         const refreshResult = await requestRefreshToken(API_URL);
         // const refreshResponse = await refreshSessionOnce(API_URL);
         // console.log('[AUTH] Refresh response:', refreshResponse.status);
 
+        console.log('[AUTH] Refreshed Token:', refreshResult);
         // Do not let an outdated request overwrite a newer login/logout.
         if (!isCurrentOperation()) return;
 
@@ -187,7 +188,7 @@ function AuthProvider({ children }) {
         temporaryStore({ name: 'token', value: newToken }, 1);
 
         // Load the authenticated user's profile.
-        const profileResponse = await fetch(`${API_URL}/auth/refresh`, {
+        const profileResponse = await fetch(`${API_URL}/auth/reload-data`, {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${newToken}`
@@ -210,7 +211,7 @@ function AuthProvider({ children }) {
         // Only the latest operation may clear the current session.
         if (!isCurrentOperation()) return;
 
-        console.error('Authentication restoration failed:', error);
+        // console.error('Authentication restoration failed:', error);
 
         temporaryStore({ name: 'token' }, 2);
 
@@ -280,7 +281,7 @@ function AuthProvider({ children }) {
     setPhoneNumbersData(data.allData);
   } */
   function processLL(data) {
-    const tokenValue = data?.accessToken || data?.token;
+    const tokenValue = data?.token || data?.accessToken;
 
     if (!tokenValue) {
       console.error('Login response did not contain an access token.');

@@ -18,6 +18,8 @@ import SignupPage from './components/SignupPage/sp-file.jsx'
 import VerifyContactPage from './components/Verification/Verify-Contact.jsx'
 import ComposeSMS from './components/SmsComposer/sc-file.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 
 // http://localhost:3000
 
@@ -59,6 +61,14 @@ function App() {
             } />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route
+              path="/forgot-password"
+              element={<ForgotPassword />}
+            />
+            <Route
+              path="/reset-password"
+              element={<ResetPassword />}
+            />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
@@ -80,21 +90,6 @@ function App() {
               </ProtectedRoute>
               } />
           </Routes>
-          <div className="min-h-screen bg-gray-50 p-6">
-            <div className="max-w-6xl mx-auto">
-              <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="col-span-2">
-                </div>
-                <div></div>
-                <div>
-                  {/* <SmsPortalDemo /> */}
-                </div>
-                <div>
-                  {/* <LetsFindOut /> */}
-                </div>
-              </main>
-            </div>
-          </div>
         {/* </ProtectedRoute> */}
       {/* </AuthProvider> */}
     </>

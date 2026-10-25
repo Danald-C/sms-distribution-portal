@@ -82,7 +82,7 @@ function GoogleLoginButton() {
     
     try {
       // const response = await fetch('http://localhost:4000/api/auth/google-oauth', {
-      const response = await fetch(`${data.API_URL}/auth/google-oauth`, {
+      const response = await fetch(`${data.API_URL}/auth/register-google`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -95,12 +95,12 @@ function GoogleLoginButton() {
         
         console.log(returnedData)
       if (returnedData.Success) {
-        functions.processGL(returnedData);
+        // functions.processGL(returnedData);
         // console.log(functions.temporaryStore({name: 'gateway', value: {}}, 0))
         // let getGateway = functions.temporaryStore({name: 'gateway', value: {}}, 0);
-        // navigate("/profile");
-        // navigate(getGateway && getGateway.type === 1 || data.newUser ? "/verify-contact" : "/profile");
-        navigate(returnedData.newUser ? "/verify-contact" : "/dashboard");
+
+        // navigate(returnedData.newUser ? "/verify-contact" : "/dashboard");
+        navigate("/dashboard");
       }else{
         navigate("/");
       }

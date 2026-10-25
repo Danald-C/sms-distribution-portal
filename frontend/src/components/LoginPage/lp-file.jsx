@@ -11,6 +11,7 @@ const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
 const [loading, setLoading] = useState(false);
 const [alerts, setAlerts] = useState([]);
+const [showPassword, setShowPassword] = useState(false);
 
 async function submit(e) {
 e.preventDefault();
@@ -100,7 +101,7 @@ try {
               </div>
 
               <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-                SMS Distribution Portal
+                DC SMS Distribution Portal
               </h1>
 
               <p className="mt-2 text-sm text-slate-500 sm:text-base">
@@ -153,7 +154,7 @@ try {
                   />
                 </div>
 
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <label
                     htmlFor="login-password"
                     className="block text-sm font-medium text-slate-700"
@@ -171,6 +172,46 @@ try {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+                </div> */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="login-password"
+                    className="block text-sm font-medium text-slate-700"
+                  >
+                    Password
+                  </label>
+
+                  <div className="relative">
+                    <input
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      required
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 pr-20 text-slate-800 placeholder:text-slate-400 transition-all duration-200 focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((previous) => !previous)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
+                      className="absolute inset-y-0 right-3 my-auto h-fit text-sm font-medium text-blue-700 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm font-medium text-blue-700 transition hover:text-blue-900"
+                  >
+                    Forgot Password?
+                  </Link>
                 </div>
 
                 <button

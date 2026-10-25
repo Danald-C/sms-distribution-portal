@@ -437,4 +437,4 @@ CREATE TABLE contacts (
 ); */
 
       
-module.exports = {envDefs, pool, dbObj, functions: { testDatabaseConnection, tableCreateRow, tableGetRows, removeUser, tableUpdateRow, getUsers }}
+module.exports = {envDefs, pool, dbObj, functions: { dbQuery, testDatabaseConnection, tableCreateRow, tableGetRows, removeUser, tableUpdateRow, getUsers }}
