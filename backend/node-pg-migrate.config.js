@@ -47,5 +47,6 @@ module.exports = {
   dir: './database/migrations',
   migrationsTable: 'pgmigrations',
   direction: 'up',
-  migrationFileLanguage: 'cjs'
+  // migrationFileLanguage: 'cjs'
+  migrationFileLanguage: 'sql'
 };

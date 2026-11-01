@@ -34,6 +34,10 @@ if (!password) {
 try {
   setLoading(true);
 
+  console.log(JSON.stringify({
+      email: email.trim().toLowerCase(),
+      password
+    }))
   const response = await fetch(`${data.API_URL}/auth/login`, {
     method: "POST",
     credentials: "include",

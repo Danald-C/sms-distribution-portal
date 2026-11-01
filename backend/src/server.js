@@ -41,7 +41,10 @@ async function startServer() {
     // ...
     // app.listen(PORT, () => console.log(...));
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(cookieParser())
 app.use(bodyParser.json())
 // app.use(express.json())
@@ -66,7 +69,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/sms', smsRoutes.router)
 app.use('/api/payments', paymentsRoutes)
 
-app.use(cors());
+// app.use(cors());
 // mount APIs
 app.get('/health', (req,res)=>res.status(200).json({ ok: true,
   "database": "connected",

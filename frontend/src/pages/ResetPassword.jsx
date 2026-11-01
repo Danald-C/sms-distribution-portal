@@ -7,7 +7,8 @@ export default function ResetPassword() {
 const [searchParams] = useSearchParams();
 const navigate = useNavigate();
 
-const token = searchParams.get('token') || '';
+// const token = searchParams.get('token') || '';
+const params = {type: searchParams.get('type') || '', token: searchParams.get('token') || ''};
 
 const [password, setPassword] = useState('');
 const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,7 +23,8 @@ event.preventDefault();
 
 setError('');
 
-if (!/^[a-f0-9]{64}$/i.test(token)) {
+// if (!/^[a-f0-9]{64}$/i.test(token)) {
+if (!/^[a-f0-9]{64}$/i.test(params.token)) {
   setError('This password-reset link is invalid or incomplete.');
   return;
 }
@@ -45,6 +47,7 @@ try {
     headers: {
       'Content-Type': 'application/json'
     },
+    // body: JSON.stringify({ token, password })
     body: JSON.stringify({ token, password })
   });
 

@@ -26,6 +26,13 @@ const {
 } = process.env;
 
 const defaultUnit = 30;
+const generateOTP = () => {
+  const newOTP = Math.floor(100000 + Math.random() * 900000).toString(), otpMessage = `Your OTP is ${newOTP}. It expires in 10 minutes.`, otpMessFrom = "DC Soft";
+  const expiresAt = new Date(Date.now() + 10*60*1000) // 10 minutes from now
+  // Date.now() + 5 * 60 * 1000
+
+  return {newOTP, otpMessage, otpMessFrom, expiresAt}
+}
 
 async function dbQuery(query, params = []) {
   const result = await db.pool.query(query, params);
@@ -157,7 +164,7 @@ router.post('/register-number', async (req, res)=> {
   try{
     // console.log(req.body)
     // let authentication = await authenticateUser({ full_name: req.body.name, email: req.body.email, google_id: 'gid_0', profile_picture: "none" });
-    let authentication = await authenticateUser({ full_name: req.body.name, email: req.body.email, phone_number: req.body.number, password: req.body.number, profile_picture: "none" });
+    let authentication = await authenticateUser({ full_name: req.body.name, email: req.body.email, phone_number: req.body.number, password: req.body.password, profile_picture: "none" });
 
     // Issue a refresh cookie for the authenticated user.
     await issueRefreshCookie(req, res, authentication.user.user_id);
@@ -179,17 +186,18 @@ async function authenticateUser(user, type=0) {
     // if(!thisUser || thisUser && !await bcrypt.compare(thisUser.password, user.password)){ // User does not exist yet, create it.
       // let getAll = await db.functions.tableGetRows("users", {});
       // thisUser = await db.functions.tableCreateRow("users", {...user, google_id: `gid_${getAll.data.length}`, unit_1: defaultUnit, unit_1_created_at: new Date(), unit_2: 0});
-
-    // console.log("AUTH: ", thisUser)      
+  
       const passwordHash = await bcrypt.hash(user.password, 12);
       thisUser = await db.functions.tableCreateRow("users", {...user, password: passwordHash, google_id: (type == 1) ? user.google_id : `local_${uuidv4()}`, unit_1: defaultUnit, unit_1_created_at: new Date(), unit_2: 0});
 
       // newUser = true;
       newUser = {...newUser, new: true}
     }else{
+      // console.log("AUTH: ", thisUser, await bcrypt.compare(user.password, thisUser.password), [user.password, thisUser.password])    
       if(await bcrypt.compare(thisUser.password, user.password)){
+      // if(await bcrypt.compare(user.password, thisUser.password)){
         // if(!thisUser.phone_verified){
-        if(!thisUser.email_verified || !thisUser.phone_verified){
+        if(!thisUser.email_verified && !thisUser.phone_verified){
           if(user.full_name) thisUser = await db.functions.tableUpdateRow("users", {id: thisUser.id, full_name: user.full_name }); // If a new name came this time, then save
           // newUser = true;
           newUser = {...newUser, new: true};
@@ -298,63 +306,14 @@ router.post('/register-email', async (req, res) => {
       `INSERT INTO public.email_tokens
          (token_hash, user_id, type, expires_at)
        VALUES ($1, $2, 'verification', $3)`,
-      [tokenHash, user.id, expiresAt]
+      // [tokenHash, user.id, expiresAt]
+      [tokenHash, user.user_id, expiresAt]
     );
 
-    const frontendUrl = (
-      process.env.FRONTEND_URL ||
-      'https://www.dcsmsportal.com'
-    ).replace(/\/+$/, '');
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://www.dcsmsportal.com').replace(/\/+$/, '');
+    const verificationUrl = `${frontendUrl}/verify-email?token=${encodeURIComponent(rawToken)}`;
 
-    const verificationUrl =
-      `${frontendUrl}/verify-email?token=${encodeURIComponent(rawToken)}`;
-
-
-    // Reuse the email credentials already configured in your application.
-    /* const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_ADDRESS,
-        pass: process.env.EMAIL_PASSWORD
-      }
-    }); */
-    // const transporter = useNodeMailer();
-
-    // Send the verification email before committing the new account.
-    // If email delivery fails, the transaction is rolled back.
-    /* await transporter.sendMail({
-      from: process.env.EMAIL_ADDRESS,
-      to: user.email,
-      subject: 'Verify your DC SMS Portal email address',
-      text:
-        `Hello ${user.full_name},\n\n` +
-        `Please verify your email address by opening this link:\n` +
-        `${verificationUrl}\n\n` +
-        `This link expires in 24 hours.\n\n` +
-        `If you did not request this account, you can ignore this email.`,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-          <h2>Verify your email address</h2>
-          <p>Hello,</p>
-          <p>
-            Thank you for registering with DC SMS Distribution Portal.
-            Please verify your email address to activate your account.
-          </p>
-          <p>
-            <a
-              href="${verificationUrl}"
-              style="display:inline-block;padding:12px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px"
-            >
-              Verify email address
-            </a>
-          </p>
-          <p>This link expires in 24 hours.</p>
-          <p>
-            If you did not request this account, you can ignore this email.
-          </p>
-        </div>
-      `
-    }); */
+    // console.log('TOKEN: ', encodeURIComponent(rawToken));
     requestSendMail({
       from: null,
       to: user.email,
@@ -368,7 +327,11 @@ router.post('/register-email', async (req, res) => {
     return res.status(201).json({
       Success: true,
       // newUser: true,
-      message: 'Registration successful. Please check your email to verify your account.'
+      message: 'Registration successful. Please check your email to verify your account.',
+      // token: authentication.jwtToken,
+      // user: authentication.user,
+      // allData: authentication.allData,
+      newUser: authentication.newUser
     });
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
@@ -405,9 +368,7 @@ router.post('/verify-email', async (req, res) => {
         error: 'The verification link is invalid or expired.'
       });
     } */
-    if(!validateString(token, 1)) return res.status(400).json({
-        error: 'The verification link is invalid or expired.'
-      });
+    if(!validateString(token, 1)) return res.status(400).json({error: 'The verification link is invalid or expired.'});
 
     const tokenHash = crypto
       .createHash('sha256')
@@ -444,59 +405,33 @@ router.post('/verify-email', async (req, res) => {
        WHERE id = $1`,
       [userId]
     ); */
-    await db.functions.tableUpdateRow("public.users", { id: returnedUser.id, email_verified: true, updated_at: new Date() });
+    await db.functions.tableUpdateRow("public.users", { id: returnedUser.data[0].id, email_verified: true, updated_at: new Date() });
 
     // Remove the token so it cannot be reused.
-    /* await client.query(
-      `DELETE FROM public.email_tokens
-       WHERE token_hash = $1`,
-      [tokenHash]
-    ); */
-    await db.functions.removeUser('public.email_tokens', { token_hash: tokenHash });
+    await client.query(`DELETE FROM public.email_tokens WHERE token_hash = $1`, [tokenHash]);
+    // await db.functions.removeUser('public.email_tokens', { token_hash: tokenHash });
 
     await client.query('COMMIT');
 
-    // To the new user
-    /* requestSendMail({
-      from: null,
-      to: returnedUser.email,
-      subject: 'WELCOME TO DC SMS!!',
-      text: `Welcome to DC SMS Distribution Portal, Your sign up process was successfull.. Enjoy your experience!`
-    }); */
-    // To developer
-    /* requestSendMail({
-      from: null,
-      to: null,
-      subject: 'NEW USER!!',
-      text: null,
-      html: `<h2>A New User Joined.</h2>
-          <p><b>Name:</b> ${returnedUser.full_name}</p>
-          <p><b>Email:</b> ${returnedUser.email}</p>
-          <p><b>Phone:</b> ${returnedUser.phone_number}</p>
-          <p>A new user with the above details joined DC SMS Distribution Portal on this date ${new Date()}.</p>` 
-    }); */
     welcomeUserSetup(returnedUser);
 
-    return res.json({
-      ok: true,
-      message: 'Your email has been verified. You can now sign in.'
-    });
+    // console.log("Did we get here?");
+    return res.json({ok: true, message: 'Your email has been verified. You can now sign in.'});
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
 
     console.error('Email verification error:', error.message);
 
-    return res.status(500).json({
-      error: 'Email verification failed. Please try again.'
-    });
+    return res.status(500).json({error: 'Email verification failed. Please try again.'});
   } finally {
     client.release();
   }
 });
 
 // Request a password-reset email.
-router.post('/forgot-password', async (req, res) => {
-  const email = String(req.body?.email || '').trim().toLowerCase();
+router.post('/forgot-password-email', async (req, res) => {
+  // const email = String(req.body?.email || '').trim().toLowerCase();
+  const email = String(req.body?.data.email || '').trim().toLowerCase();
 
   // Use the same public response regardless of whether the account exists.
   const successResponse = {
@@ -543,21 +478,14 @@ router.post('/forgot-password', async (req, res) => {
     // Generate a cryptographically secure, one-time token.
     // const rawToken = crypto.randomBytes(32).toString('hex');
     const rawToken = generateRefreshToken(32);
-
-    const tokenHash = crypto
-      .createHash('sha256')
-      .update(rawToken)
-      .digest('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
     // Password-reset links expire after 30 minutes.
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-    const frontendUrl = (
-      process.env.FRONTEND_URL ||
-      'https://www.dcsmsportal.com'
-    ).replace(/\/+$/, '');
-
-    const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://www.dcsmsportal.com').replace(/\/+$/, '');
+    // const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
+    const resetUrl = `${frontendUrl}/reset-password?type=email&token=${encodeURIComponent(rawToken)}`;
 
     /* const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -658,17 +586,83 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
+router.post('/forgot-password-number', async (req, res) => {
+  try{
+    const number = String(req.body.number || '').trim();
+    const otp = String(req.body.otp.code || '').trim();
+    if(!number && !otp || !number){
+      return res.status(503).json({error: 'No data specified. This process failed'})
+    }
+
+    let returnedUser = await db.functions.tableGetRows("public.users", { phone_number: number }), thisUser = returnedUser.data[0];
+    
+    if(!thisUser){
+      return res.status(503).json({error: 'No related account found. This process failed'});
+    }
+
+    // let returnedOTP = await db.functions.tableGetRows("public.phone_otp", { user_id: thisUser.id, type: "password_reset" }), thisOTP = returnedOTP.data[0];
+    let returnedOTP = await db.functions.tableGetRows("public.phone_otp", { user_id: thisUser.id }), thisOtp = returnedOTP.data[0];
+    let complete = false;
+    const {newOTP, otpMessage, otpMessFrom, expiresAt} = generateOTP();
+    if(!thisOtp){ // Sending
+      // await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
+      await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+
+      console.log(`New OTP sent ${newOTP}`);
+    }else{ // Receiving
+      if(otp){ // User entered otp
+        console.log("User submitted OTP");
+        
+        if(new Date(thisOtp.expires_at).getTime() > new Date().getTime()){ // Otp has not expired
+          console.log("OTP has not expired");
+          
+          if(thisOtp.otp == otp){ // Otp is correct
+            console.log("OTP is valid");
+            // await db.functions.removeUser('public.phone_otp', { user_id: thisUser.id, otp, type: "password_reset" });
+            // await db.functions.removeUser('public.phone_otp', { user_id: thisUser.id, otp });
+
+            complete = true;
+          }else{ // Otp is not correct
+            console.log("OTP is NOT valid");
+            return res.status(503).json({error: 'Your otp does not match or not found. Enter correct otp.'});
+          }
+        }else{ // Expired so resend
+          console.log(`OTP has expired. New one resent ${newOTP}`);
+          
+          // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
+          await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+          // await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
+        }
+      }else{ // User did not enter otp
+        console.log("User did not submit OTP");
+        
+        if(new Date(thisOtp.expires_at).getTime() < new Date().getTime() || req.body.otp.resend){ // Has the existing expired? Resend.
+          console.log(`Current OTP has expired. New one resent ${newOTP}`);
+          
+          // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
+          await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+          // await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
+        }else{
+          console.log("Current OTP has NOT expired. Waiting for user submission");
+          return res.status(503).json({error: 'You must enter the otp sent to you.'});
+        }
+      }
+    }
+
+    return res.status(200).json({Success: true , complete}); 
+  }catch(error){
+    console.error('Password-reset request failed:', error.message);
+    return res.status(500).json({error: 'Unable to process your request. Please try again later.'});
+  };
+});
+
 // Reset a password using a valid, single-use password-reset token.
 router.post('/reset-password', async (req, res) => {
-  const { token, password } = req.body || {};
+  // const { token, password } = req.body || {};
+  const { params: {type, token}, password } = req.body || {};
 
-  if (
-    typeof token !== 'string' ||
-    !/^[a-f0-9]{64}$/i.test(token)
-  ) {
-    return res.status(400).json({
-      error: 'This password-reset link is invalid or expired.'
-    });
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token) && type == 'email') {
+    return res.status(400).json({error: 'This password-reset link is invalid or expired.'});
   }
 
   if (
@@ -784,21 +778,19 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
   try{
     // Verify Token
     const authHeader = req.headers.authorization;
-    let verified = Middlewares.getVerified(authHeader), status = {success: false, complete: false, otp: {code: '', resent: false}, error: {state: false, message: ""}}, user_id = verified.user_id, returnedUser = await db.functions.tableGetRows("users", { id: user_id }), thisUser = returnedUser.data[0];
+    let verified = Middlewares.getVerified(authHeader), status = {success: false, complete: false, otp: {code: '', sent: false, resent: false}, error: {state: false, message: ""}}, user_id = verified.user_id, returnedUser = await db.functions.tableGetRows("users", { id: user_id }), thisUser = returnedUser.data[0];
 
     // console.log(await db.functions.removeUser("users", { id: "6d6eafe9-1778-46f0-8a77-9c99309a99f7" }))
     if(verified){
       // Process OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString(), otpMessage = `Your OTP is ${otp}. It expires in 10 minutes.`, otpMessFrom = "DC Soft";
+      // const otp = Math.floor(100000 + Math.random() * 900000).toString(), otpMessage = `Your OTP is ${otp}. It expires in 10 minutes.`, otpMessFrom = "DC Soft";
+      const {newOTP, otpMessage, otpMessFrom, expiresAt} = generateOTP();
       
       if(thisUser){
         if(thisUser.phone_verified){
           status = {success: true, complete: true};
           await issueRefreshCookie(req, res, thisUser.id);
         }else{
-          let expiresAt = new Date(Date.now() + 10*60*1000) // 10 minutes from now
-          // Date.now() + 5 * 60 * 1000
-          
           if(!thisUser.phone_number){
             thisUser = await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_number: req.body.number });
           }
@@ -808,15 +800,16 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
           // console.log(`Watch here: ${status.success}`, `Otp: ${thisOtp.otp} == ${req.body.otp}`, `Date: ${new Date(thisOtp.expires_at)} and ${new Date()}`, verified.user)
           if(!thisOtp || req.body.otp.resend){
             if(req.body.otp.resend){
-              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
+              await db.functions.removeUser('public.phone_otp', { otp: thisOtp.otp });
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
               // status = {...status, resent: true};
               status = {...status, otp: {...status.otp, resent: true}};
             }else{
-              await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp, expires_at: expiresAt });
+              await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
             }
             await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
 
-            status = {...status, success: true};
+            status = {...status, otp: {...status.otp, sent: true}, success: true};
             // status.success = true;
           }else{ // Otp exists already OR receiving it
           //  if(thisOtp.otp === req.body.otp){
@@ -824,37 +817,37 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
             // if(new Date(thisOtp.expires_at) > new Date()){
             if(new Date(thisOtp.expires_at).getTime() > new Date().getTime()){ // Has not expired yet
               await db.functions.tableUpdateRow("users", {id: thisUser.id, phone_verified: true });
-              await db.functions.removeUser('public.phone_otp', { otp: thisOtp.otp });
+              await db.functions.removeUser('public.phone_otp', { user_id: thisUser.id, otp: thisOtp.otp });
               await issueRefreshCookie(req, res, thisUser.id);
               
               welcomeUserSetup(thisUser, 1);
 
               status = {...status, complete: true};
               // status.complete = true;
-            }else{
-              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
+            }else{ // Submitted or entered by user but expired so resend
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
               await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
 
               // status = {...status, resent: true, error: {state: true, message: "OTP expired. A new OTP has been sent."}};
-              status = {...status, otp: {...status.otp, resent: true}, error: {state: true, message: "OTP expired. A new OTP has been sent."}};
+              status = {...status, otp: {...status.otp, sent: true, resent: true}, error: {state: true, message: "OTP expired. A new OTP has been sent."}};
             }
             
             status = {...status, success: true};
             // status.success = true;
-          }else{
+          }else{ // No OTP submitted to us or entered by user. Check already sent OTP life-line.
             status = {...status, success: false, error: {state: false, message: "Invalid OTP. Please try again."}};
             if(new Date(thisOtp.expires_at).getTime() < new Date().getTime()){
-              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, expires_at: expiresAt });
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
               await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
               
               // status = {...status, resent: true, error: {state: false, message: ""}};
-              status = {...status, otp: {...status.otp, resent: true}, error: {state: false, message: ""}};
+              status = {...status, otp: {...status.otp, sent: true, resent: true}, error: {state: false, message: ""}};
             }
             // console.log(new Date(thisOtp.expires_at).getTime() > new Date().getTime())
             // status.success = false;
            }
           }
-          status = {...status, otp: {...status.otp, code: otp}};
+          // status = {...status, otp: {...status.otp, code: otp}};
         }
       }
     }else{
@@ -899,11 +892,22 @@ router.post('/remove-user', async (req, res) => {
   }
 });
 
-router.get('/remove-user', Middlewares.verifyJWTMiddleware, async (req, res) => {
+router.get('/remove-all-users', async (req, res) => {
+  try{
+    let users = await db.functions.tableGetRows('public.users');
+    // removeUser(req.user.user_id);
+    users.data.map(async user => await removeUser(user.id))
+  
+    res.json({ Success: true });
+  }catch(error){
+    console.error('Cannot remove record: ', error)
+    res.json( {error} )
+  }
+});
+
+router.get('/remove-user', Middlewares.verifyJWTMiddleware, (req, res) => {
   try{
     removeUser(req.user.user_id);
-    
-    // let user = await db.functions.tableUpdateRow("users", {id: req.body.id, full_name: "Danald Consult" });
     // console.log(user);
   
     res.json({ Success: true });
@@ -954,7 +958,7 @@ router.post('/contact-grouping', async (req, res) => {
       await db.functions.removeUser("phone_number_groups", { id: req.query.id, user_id: req.query.user_id });
     }
     let phone_number_groups = await db.functions.tableGetRows('phone_number_groups', { user_id: req.query.user_id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
-      console.log(phone_number_groups);
+      // console.log(phone_number_groups);
   
     res.json({ success: true, phone_number_groups });
   }catch(error){
@@ -1018,6 +1022,14 @@ router.post('/fetch-contacts', async (req, res) => {
 // Refresh access token using the HttpOnly refresh cookie.
 router.post('/refresh', async (req, res) => {
   try {
+    console.log('[AUTH REFRESH DEBUG]', {
+      cookieParserAvailable: Boolean(req.cookies),
+      cookieNames: Object.keys(req.cookies || {}),
+      configuredCookieName: REFRESH_COOKIE_NAME,
+      refreshCookiePresent: Boolean(
+          req.cookies?.[REFRESH_COOKIE_NAME]
+      )
+    });
     const cookieValue = req.cookies?.[REFRESH_COOKIE_NAME];
 
     if (!cookieValue) {
@@ -1042,6 +1054,13 @@ router.post('/refresh', async (req, res) => {
     const tokenPlain = cookieValue.slice(separator + 1);
 
     const row = await tokenStore.getRefreshRowByTokenId(tokenId);
+    console.log('[AUTH REFRESH DEBUG] Token lookup:', {
+      tokenRecordFound: Boolean(row),
+      tokenRevoked: row?.revoked ?? null,
+      tokenExpired: row?.expires_at
+          ? new Date(row.expires_at) <= new Date()
+          : null
+  });
 
     if (!row) {
       clearRefreshCookie(res);
@@ -1072,6 +1091,9 @@ router.post('/refresh', async (req, res) => {
       tokenPlain,
       row.token_hash
     );
+    console.log('[AUTH REFRESH DEBUG] Token hash comparison:', {
+        tokenMatches
+    });
 
     if (!tokenMatches) {
       clearRefreshCookie(res);
@@ -1088,17 +1110,21 @@ router.post('/refresh', async (req, res) => {
        LIMIT 1`,
       [row.user_id]
     ); */
-    const users = db.functions.tableGetRows('public.users', { id: row.user_id }, {limit: 1});
+    const userResult = await db.functions.tableGetRows(
+        'public.users',
+        { id: row.user_id },
+        { limit: 1 }
+    );
 
-    const user = users[0];
+    const user = userResult?.data?.[0];
 
     if (!user) {
-      await tokenStore.revokeRefreshRowByTokenId(tokenId);
-      clearRefreshCookie(res);
+        await tokenStore.revokeRefreshRowByTokenId(tokenId);
+        clearRefreshCookie(res);
 
-      return res.status(401).json({
-        error: 'User not found'
-      });
+        return res.status(401).json({
+            error: 'User not found'
+        });
     }
 
     const newTokenId = uuidv4();
@@ -1128,6 +1154,7 @@ router.post('/refresh', async (req, res) => {
     });
 
     setRefreshCookie(res, newTokenId, newTokenPlain);
+    console.log('[AUTH REFRESH DEBUG] Refresh completed successfully.');
 
     return res.json({
       Success: true,
@@ -1310,7 +1337,6 @@ DC Group</p>
 });
 
 // Login
-// Login
 router.post('/login', express.json(), async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -1320,18 +1346,20 @@ router.post('/login', express.json(), async (req, res) => {
         error: 'Missing email or password'
       });
     }
-
+    
     // Fetch the user using the actual database schema.
-    const users = await dbQuery(
-      `SELECT id, full_name, email, password, role, email_verified
-       FROM public.users
-       WHERE email = $1
-       LIMIT 1`,
+    /* const users = await dbQuery(
+    `SELECT id, full_name, email, password, role, email_verified
+      FROM public.users
+      WHERE email = $1
+      LIMIT 1`,
       [email]
-    );
-
-    const user = users[0];
-
+    ); */
+    const users = await db.functions.tableGetRows("public.users", { email });
+    
+    // const user = users[0];
+    const user = users.data[0];
+    
     if (!user || !user.password) {
       return res.status(401).json({
         error: 'Invalid credentials'
@@ -1339,15 +1367,14 @@ router.post('/login', express.json(), async (req, res) => {
     }
 
     // Preserve the existing email verification requirement.
-    if (!user.email_verified) {
-      return res.status(403).json({
-        error: 'Verify email first'
-      });
+    if (!user.email_verified && !user.phone_verified) {
+      return res.status(403).json({error: 'You need to verify first.'});
     }
 
     // Verify the submitted password against the stored hash.
     const passwordMatches = await bcrypt.compare(password, user.password);
 
+    // console.log("LOGIN: ", passwordMatches)
     if (!passwordMatches) {
       return res.status(401).json({
         error: 'Invalid credentials'

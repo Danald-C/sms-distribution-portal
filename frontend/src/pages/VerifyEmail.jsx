@@ -22,6 +22,7 @@ export default function VerifyEmail() {
 
     async function verifyEmail() {
       try {
+        console.log(JSON.stringify({ token }), controller.signal)
         const response = await fetch(`${API_URL}/auth/verify-email`, {
           method: 'POST',
           headers: {
@@ -99,10 +100,10 @@ export default function VerifyEmail() {
 
         {status === 'error' && (
           <Link
-            to="/"
+            to="/signup"
             className="inline-block rounded-xl border border-slate-200 px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
           >
-            Return to sign in
+            Return to sign up
           </Link>
         )}
       </div>

@@ -92,7 +92,7 @@ function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [loadContent, setLoadContent] = useState(false);
+  // const [loadContent, setLoadContent] = useState(false);
   const [gateway, setGateway] = useState({type: 0, from: 'local'}); // '0 = signin' or '1 = signup'
   const [phoneNumbersData, setPhoneNumbersData] = useState([]);
   const [authReady, setAuthReady] = useState(false);
@@ -132,18 +132,14 @@ function AuthProvider({ children }) {
     refresh();
     // loadPage();
   }, []); */
-  useEffect(() => {
+  /* useEffect(() => {
     let cancelled = false;
 
     // Identify this particular restoration attempt.
-    // const operationId = ++authOperationRef.current;
-    /* console.log('[AUTH] Session restoration effect started', {
-      API_URL,
-      operationId
-    }); */
+    const operationId = ++authOperationRef.current;
 
-    // const isCurrentOperation = () => !cancelled && authOperationRef.current === operationId;
-    const isCurrentOperation = () => !cancelled && authOperationRef.current === ++authOperationRef.current;
+    const isCurrentOperation = () => !cancelled && authOperationRef.current === operationId;
+    // const isCurrentOperation = () => !cancelled && authOperationRef.current === ++authOperationRef.current;
 
     async function refresh() {
       try {
@@ -230,6 +226,118 @@ function AuthProvider({ children }) {
 
     return () => {
       cancelled = true;
+    };
+  }, [API_URL]) */
+  useEffect(() => {
+    let cancelled = false;
+    // console.log('[AUTH] Session restoration effect started', {
+    //   API_URL,
+    //   operationId
+    // });
+
+    // Assign an ID to this specific restoration attempt.
+    const operationId = ++authOperationRef.current;
+
+    const isCurrentOperation = () =>
+        !cancelled &&
+        authOperationRef.current === operationId;
+
+    async function refresh() {
+        try {
+            setLoading(true);
+
+            const refreshResult = await requestRefreshToken(API_URL);
+
+            // Ignore results from outdated operations.
+            if (!isCurrentOperation()) return;
+
+            if (!refreshResult.ok) {
+                console.error(
+                    '[AUTH] Refresh failed:',
+                    refreshResult.status,
+                    refreshResult.data
+                );
+
+                temporaryStore({ name: 'token' }, 2);
+
+                setAccessToken(null);
+                setUser(null);
+                setPhoneNumbersData([]);
+
+                return;
+            }
+
+            const refreshData = refreshResult.data;
+            const newToken = refreshData.accessToken;
+
+            if (!refreshData.Success || !newToken) {
+                throw new Error(
+                    'Refresh response did not contain an access token.'
+                );
+            }
+
+            temporaryStore({
+                name: 'token',
+                value: newToken
+            }, 1);
+
+            const profileResponse = await fetch(
+                `${API_URL}/auth/reload-data`,
+                {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${newToken}`
+                    }
+                }
+            );
+
+            if (!isCurrentOperation()) return;
+
+            if (!profileResponse.ok) {
+                throw new Error(
+                    `Profile request failed: HTTP ${profileResponse.status}`
+                );
+            }
+
+            const profileData = await profileResponse.json();
+
+            if (!profileData.Success) {
+                throw new Error('Unable to load the user profile.');
+            }
+
+            // Check again before committing the authenticated state.
+            if (!isCurrentOperation()) return;
+
+            setAccessToken(newToken);
+            setUser(profileData.user || null);
+            setPhoneNumbersData(profileData.allData || []);
+
+        } catch (error) {
+            if (!isCurrentOperation()) return;
+
+            console.error(
+                '[AUTH] Session restoration failed:',
+                error
+            );
+
+            temporaryStore({ name: 'token' }, 2);
+
+            setAccessToken(null);
+            setUser(null);
+            setPhoneNumbersData([]);
+
+        } finally {
+            if (isCurrentOperation()) {
+                setLoading(false);
+                setAuthReady(true);
+            }
+        }
+    }
+
+    refresh();
+
+    return () => {
+        cancelled = true;
     };
   }, [API_URL]);
 
@@ -491,7 +599,7 @@ function AuthProvider({ children }) {
     accessToken,
     loading,
     authReady,
-    loadContent,
+    // loadContent,
     phoneNumbersData
   }, functions: {
     processLL,
@@ -505,7 +613,7 @@ function AuthProvider({ children }) {
     fetchFromBackend,
     displayError,
     processError,
-    setLoadContent,
+    // setLoadContent,
     setPhoneNumbersData
   }}
 

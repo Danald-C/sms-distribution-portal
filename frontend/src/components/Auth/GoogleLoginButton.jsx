@@ -78,7 +78,7 @@ function GoogleLoginButton() {
 
   const handleSuccess = async (credentialResponse) => {
 
-    console.log("Google Credential: ", JSON.stringify(credentialResponse.credential))
+    // console.log("Google Credential: ", JSON.stringify(credentialResponse.credential))
     
     try {
       // const response = await fetch('http://localhost:4000/api/auth/google-oauth', {
@@ -93,11 +93,9 @@ function GoogleLoginButton() {
         })
         const returnedData = await response.json()
         
-        console.log(returnedData)
+        // console.log(returnedData)
       if (returnedData.Success) {
-        // functions.processGL(returnedData);
-        // console.log(functions.temporaryStore({name: 'gateway', value: {}}, 0))
-        // let getGateway = functions.temporaryStore({name: 'gateway', value: {}}, 0);
+        functions.processGL(returnedData);
 
         // navigate(returnedData.newUser ? "/verify-contact" : "/dashboard");
         navigate("/dashboard");

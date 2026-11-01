@@ -90,19 +90,20 @@ export default function SignupPage() {
       });
       
       const result = await response.json();
+
+      console.log('Check Validate Number', result)
       
       if (!result.Success || result.Success && result.newUser.taken) {
-        // console.log('Check Validate Number', result)
+      // if (!result.Success) {
         localAlerts[0].push({number: ++localAlerts[1], type: 'caution', message: result.error || 'Sorry, you\'re not authorized to use this account. Registration failed. Please try again.'});
         setAlerts(localAlerts);
 
         return
 
-        /* throw new Error(
-          result.error || 'Registration failed. Please try again.'
-        ); */
+        // throw new Error(
+        //   result.error || 'Registration failed. Please try again.'
+        // );
       }
-
       
       if(verifyBy === 1){
         if(!result.newUser.taken){
@@ -122,6 +123,7 @@ export default function SignupPage() {
           password: '',
           confirmPassword: ''
         });
+        setNumber('');
       }
     } catch (err) {
       setError(err.message || 'Unable to register right now.');

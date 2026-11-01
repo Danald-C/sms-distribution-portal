@@ -86,7 +86,7 @@ WHERE revoked = TRUE AND revoked_at IS NULL; */
 /* Get user by email */
 // async function dbGetUserByEmail(email) {
 // async function tableGetRow(table, {column, cell}) {
-async function tableGetRows(table, data, extra={orderBy: null, desc: null, page: null, limit: null}) {
+async function tableGetRows(table, data={}, extra={orderBy: null, desc: null, page: null, limit: null}) {
   let getKeys = Object.keys(data), getValues = Object.values(data);
   try{
     // if (!column || !cell) return null
