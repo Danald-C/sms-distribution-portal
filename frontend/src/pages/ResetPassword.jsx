@@ -24,7 +24,7 @@ event.preventDefault();
 setError('');
 
 // if (!/^[a-f0-9]{64}$/i.test(token)) {
-if (!/^[a-f0-9]{64}$/i.test(params.token)) {
+if (!/^[a-f0-9]{64}$/i.test(params.token) && params.type == 'email') {
   setError('This password-reset link is invalid or incomplete.');
   return;
 }
@@ -42,21 +42,20 @@ if (password !== confirmPassword) {
 setLoading(true);
 
 try {
+      console.log(JSON.stringify({ params, password }));
   const response = await fetch(`${API_URL}/auth/reset-password`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     // body: JSON.stringify({ token, password })
-    body: JSON.stringify({ token, password })
+    body: JSON.stringify({ params, password })
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.error || 'Unable to reset your password. Please try again.'
-    );
+    throw new Error(data.error || 'Unable to reset your password. Please try again.');
   }
 
   setSuccess(true);
@@ -64,15 +63,9 @@ try {
   setConfirmPassword('');
 
   // Remove the reset token from the visible URL.
-  window.history.replaceState(
-    window.history.state,
-    '',
-    window.location.pathname
-  );
+  window.history.replaceState(window.history.state, '', window.location.pathname);
 } catch (err) {
-  setError(
-    err.message || 'Unable to contact the server. Please try again.'
-  );
+  setError(err.message || 'Unable to contact the server. Please try again.');
 } finally {
   setLoading(false);
 }
@@ -82,17 +75,11 @@ try {
 return ( <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-white to-slate-100 px-4 py-12"> <section className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl shadow-blue-900/5"> <div className="h-2 bg-gradient-to-r from-blue-600 to-blue-800" />
     <div className="px-6 py-9 sm:px-9">
       <div className="mb-7 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-2xl">
-          🔑
-        </div>
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-2xl">  🔑 </div>
 
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Reset your password
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reset your password</h1>
 
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          Choose a new password for your account.
-        </p>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Choose a new password for your account.</p>
       </div>
 
       {success ? (

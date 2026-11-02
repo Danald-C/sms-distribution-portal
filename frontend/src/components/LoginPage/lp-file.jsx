@@ -109,7 +109,7 @@ try {
               </h1>
 
               <p className="mt-2 text-sm text-slate-500 sm:text-base">
-                Sign in to manage your SMS campaigns
+                Sign in below
               </p>
             </div>
 

@@ -31,9 +31,6 @@ require("dotenv").config();
     "migrations-table": "pgmigrations",
     "migration-file-language": "sql"
 }; */
-
-require('dotenv').config();
-
 module.exports = {
   db: {
     host: process.env.DB_HOST || process.env.POSTGRES_SERVER || 'localhost',
@@ -44,9 +41,8 @@ module.exports = {
     ssl: false
   },
 
-  dir: './database/migrations',
-  migrationsTable: 'pgmigrations',
+  dir: "./database/migrations",
+  migrationsTable: "pgmigrations",
   direction: 'up',
-  // migrationFileLanguage: 'cjs'
-  migrationFileLanguage: 'sql'
+  migrationFileLanguage: "cjs"
 };

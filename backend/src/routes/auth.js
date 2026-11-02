@@ -431,7 +431,8 @@ router.post('/verify-email', async (req, res) => {
 // Request a password-reset email.
 router.post('/forgot-password-email', async (req, res) => {
   // const email = String(req.body?.email || '').trim().toLowerCase();
-  const email = String(req.body?.data.email || '').trim().toLowerCase();
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  // console.log("Did we get here?", req.body)
 
   // Use the same public response regardless of whether the account exists.
   const successResponse = {
@@ -498,14 +499,16 @@ router.post('/forgot-password-email', async (req, res) => {
     // Replace any previously issued password-reset tokens for this user.
     await client.query('BEGIN');
 
+    // First clear records
     /* await client.query(
       `DELETE FROM public.email_tokens
        WHERE user_id = $1
          AND type = 'password_reset'`,
       [user.id]
     ); */
-    await db.functions.removeUser('public.email_tokens', { user_id: user.id });
+    await db.functions.removeUser('public.email_tokens', { user_id: user.id, type: 'password_reset' });
 
+    // Create a new record
     /* await client.query(
       `INSERT INTO public.email_tokens
          (token_hash, user_id, type, expires_at)
@@ -600,18 +603,19 @@ router.post('/forgot-password-number', async (req, res) => {
       return res.status(503).json({error: 'No related account found. This process failed'});
     }
 
-    // let returnedOTP = await db.functions.tableGetRows("public.phone_otp", { user_id: thisUser.id, type: "password_reset" }), thisOTP = returnedOTP.data[0];
-    let returnedOTP = await db.functions.tableGetRows("public.phone_otp", { user_id: thisUser.id }), thisOtp = returnedOTP.data[0];
+    let returnedOTP = await db.functions.tableGetRows("public.phone_otp", { user_id: thisUser.id, type: "password_reset" }), thisOtp = returnedOTP.data[0];
+    // let returnedOTP = await db.functions.tableGetRows("public.phone_otp", { user_id: thisUser.id }), thisOtp = returnedOTP.data[0];
     let complete = false;
     const {newOTP, otpMessage, otpMessFrom, expiresAt} = generateOTP();
     if(!thisOtp){ // Sending
       // await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
-      await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+      await db.functions.removeUser('public.phone_otp', { user_id: thisUser.id, type: 'password_reset' });
+      await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp: newOTP, type: "password_reset", expires_at: expiresAt });
 
       console.log(`New OTP sent ${newOTP}`);
     }else{ // Receiving
       if(otp){ // User entered otp
-        console.log("User submitted OTP");
+        console.log(`User submitted OTP ${otp}`);
         
         if(new Date(thisOtp.expires_at).getTime() > new Date().getTime()){ // Otp has not expired
           console.log("OTP has not expired");
@@ -629,8 +633,8 @@ router.post('/forgot-password-number', async (req, res) => {
         }else{ // Expired so resend
           console.log(`OTP has expired. New one resent ${newOTP}`);
           
-          // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
-          await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+          await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
+          // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
           // await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
         }
       }else{ // User did not enter otp
@@ -639,8 +643,8 @@ router.post('/forgot-password-number', async (req, res) => {
         if(new Date(thisOtp.expires_at).getTime() < new Date().getTime() || req.body.otp.resend){ // Has the existing expired? Resend.
           console.log(`Current OTP has expired. New one resent ${newOTP}`);
           
-          // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
-          await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+          await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
+          // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
           // await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
         }else{
           console.log("Current OTP has NOT expired. Waiting for user submission");
@@ -661,31 +665,37 @@ router.post('/reset-password', async (req, res) => {
   // const { token, password } = req.body || {};
   const { params: {type, token}, password } = req.body || {};
 
-  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token) && type == 'email') {
+  // if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token) && type == 'email') {
+  if (typeof token !== 'string' || !validateString(token, 1) && type == 'email') {
     return res.status(400).json({error: 'This password-reset link is invalid or expired.'});
   }
 
-  if (
-    typeof password !== 'string' ||
-    password.length < 8 ||
-    password.length > 128
-  ) {
-    return res.status(400).json({
-      error: 'Your password must be between 8 and 128 characters.'
-    });
+  if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+    return res.status(400).json({error: 'Your password must be between 8 and 128 characters.'});
   }
 
-  const tokenHash = crypto
-    .createHash('sha256')
-    .update(token)
-    .digest('hex');
-
+  const tokenHash = (type == 'email') ? crypto.createHash('sha256').update(token).digest('hex') : token;
   const client = await db.pool.connect();
 
   try {
     await client.query('BEGIN');
 
-    const tokenResult = await client.query(
+    let sqlQueryGet = `SELECT user_id
+       FROM public.email_tokens
+       WHERE token_hash = $1
+         AND type = 'password_reset'
+         AND expires_at > NOW()
+       FOR UPDATE`;
+    if(type == 'phone'){
+      sqlQueryGet = `SELECT user_id
+      FROM public.phone_otp
+      WHERE otp = $1
+      AND type = 'password_reset'
+      AND expires_at > NOW()
+      FOR UPDATE`;
+    }
+
+    /* const tokenResult = await client.query(
       `SELECT user_id
        FROM public.email_tokens
        WHERE token_hash = $1
@@ -693,14 +703,15 @@ router.post('/reset-password', async (req, res) => {
          AND expires_at > NOW()
        FOR UPDATE`,
       [tokenHash]
-    );
+    ); */
+    const tokenResult = await client.query(sqlQueryGet, [tokenHash]);
+    console.log('Fetching user ID for phone OTP', tokenResult.rows, tokenHash, type);
 
     if (tokenResult.rowCount === 0) {
       await client.query('ROLLBACK');
 
-      return res.status(400).json({
-        error: 'This password-reset link is invalid or expired.'
-      });
+      // return res.status(400).json({error: 'This password-reset link is invalid or expired.'});
+      return res.status(400).json({error: 'This password-reset '+(type == 'email' ? 'link' : 'otp')+' is invalid or expired.'});
     }
 
     const userId = tokenResult.rows[0].user_id;
@@ -720,18 +731,27 @@ router.post('/reset-password', async (req, res) => {
     if (updateResult.rowCount === 0) {
       await client.query('ROLLBACK');
 
-      return res.status(400).json({
-        error: 'Unable to reset this password. Please request a new link.'
-      });
+      // return res.status(400).json({error: 'Unable to reset this password. Please request a new link.'});
+      return res.status(400).json({error: 'Unable to reset this password. Please request a new '+(type == 'email' ? 'link' : 'otp')+'.'});
     }
 
+    const sqlQueryDel = (type == 'email') ?
+    `DELETE FROM public.email_tokens
+       WHERE token_hash = $1
+         AND type = 'password_reset'`
+         :
+         `DELETE FROM public.phone_otp
+       WHERE otp = $1
+         AND type = 'password_reset'`;
+
     // Consume the token so it cannot be reused.
-    await client.query(
+    /* await client.query(
       `DELETE FROM public.email_tokens
        WHERE token_hash = $1
          AND type = 'password_reset'`,
       [tokenHash]
-    );
+    ); */
+    await client.query(sqlQueryDel, [tokenHash]);
 
     // Revoke existing refresh sessions in the same transaction.
     await client.query(
@@ -745,10 +765,7 @@ router.post('/reset-password', async (req, res) => {
 
     await client.query('COMMIT');
 
-    return res.status(200).json({
-      ok: true,
-      message: 'Your password has been reset. You can now sign in.'
-    });
+    return res.status(200).json({ok: true, message: 'Your password has been reset. You can now sign in.'});
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
 
@@ -1473,15 +1490,12 @@ router.post('/logout', async (req, res) => {
 function validateString(string, type=0){
   let result = false;
 
-  if(type == 0){
-    result = (!string ||
-    string.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(string)) ? false : true;
+  if(type == 0){ // Email
+    result = (!string || string.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(string)) ? false : true;
   }
 
-  if(type == 1){
-    result = (typeof string !== 'string' ||
-      !/^[a-f0-9]{64}$/i.test(string)) ? false : true;
+  if(type == 1){ // Token
+    result = (typeof string !== 'string' || !/^[a-f0-9]{64}$/i.test(string)) ? false : true;
   }
 
   return result;

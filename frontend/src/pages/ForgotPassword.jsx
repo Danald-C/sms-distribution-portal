@@ -44,7 +44,7 @@ export default function ForgotPassword() {
         dataObj = {number, otp};
       }
 
-      // console.log(dataObj);
+      console.log(JSON.stringify(dataObj));
       const response = await fetch(`${API_URL}/auth/forgot-password-${endpointSuffix}`, {
         method: 'POST',
         headers: {
