@@ -11,13 +11,16 @@ export default function GetContacts(){
   // const otherEventTrigger = useRef(null);
   const { values: { data, functions, setStates } } = useAuth();
   const navigate = useNavigate();
+  const accessToken = data.accessToken;
+
   // const [message,setMessage]=useState('')
   // const [file,setFile]=useState(null)
   const [number, setNumber] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
 
-  let setContactsOS = {new_numbers: [], existing_numbers: [], all_numbers: [], groupAssociations: []};
+  // let setContactsOS = {new_numbers: [], existing_numbers: [], all_numbers: [], groupAssociations: []};
+  let setContactsOS = {new_numbers: [[], 1], existing_numbers: [], all_numbers: [], groupAssociations: []};
   const [contacts, setContacts] = useState(setContactsOS);
   // const [contacts, setContacts] = useState({})
   // const [contacts, setContacts] = useState([["Danald","0502653700",""],["Helena","0244246167",""],["David","0558244996",""]])
@@ -39,14 +42,26 @@ export default function GetContacts(){
   
 
 // console.log("Just get the Index: ", ["Mango", "Banana", "Orange"].findIndex(each => each == "Orange"));
+// console.log("Just get the Index: ", ["Mango", "Banana", "Orange", "Watermelon", "Apple"].slice(2));
 
   useEffect(() => {
-        settingData();
-    }, [])
+      if (!data.authReady) return;
+
+      // Never call a protected endpoint with a missing token.
+      if (!accessToken) {
+        console.warn("[VERIFY] No access token available. Skipping user request.");
+        return;
+      }
+      setLoading(false);
+      // console.log('Check for phone numbers: ', data.phoneNumbersData)
+
+      
+      setContacts({...contacts, existing_numbers: data.phoneNumbersData.phone_numbers.data, all_numbers: data.phoneNumbersData.phone_numbers.data, groupAssociations: data.phoneNumbersData.phoneNumGrpAssociations.data})
+      // settingData();
+  }, [data.authReady, accessToken]);
 
     
-    async function settingData(){
-      // console.log('Wait, are you the one? ', data.loadContent)
+    /* async function settingData(){
       try{
         let thisContent = {...contacts};
         if(data.loadContent){
@@ -73,7 +88,7 @@ export default function GetContacts(){
         }finally{
         setLoading(false)
       }
-    }
+    } */
 
   function submit(e){
     e.preventDefault();
@@ -90,7 +105,9 @@ export default function GetContacts(){
       allAlerts = [];
       setAlerts(allAlerts)
       selectedOS = selectedIS;
-      let newContact = {id: selectedOS.single.id || contacts.new_numbers.length, full_name: name, phone_number: number, email}
+      let count = contacts.new_numbers[1]+1;
+      // let newContact = {id: selectedOS.single.id || contacts.new_numbers.length > 0 ? contacts.new_numbers.length+1 : 0, full_name: name, phone_number: number, email}
+      let newContact = {id: selectedOS.single.id || count, full_name: name, phone_number: number, email}
       // if(Object.keys(selected.thisData).length > 0 && selected.mode === 0){ // From existing
       if(Object.keys(selectedOS.single).length > 0){ // From existing
         // saveContacts([newContact], selectedIS.mode, "update");
@@ -98,13 +115,13 @@ export default function GetContacts(){
       }/* else if(Object.keys(selected.thisData).length > 0 && selected.mode == 1){ // From new
         saveContacts([newContact]);
       } */else{
-        // setContacts([[name, number, email], ...contacts])
-        setContacts({...contacts, new_numbers: [newContact, ...contacts.new_numbers]});
+      // console.log("Like Seriously? ", contacts.new_numbers);
+        // setContacts({...contacts, new_numbers: [newContact, ...contacts.new_numbers]});
+        setContacts({...contacts, new_numbers: [[newContact, ...contacts.new_numbers[0]], count]});
         selectedOS = {...selectedOS, mode: 1, single: {}};
       }
       selectedOS.multi[1][selectedOS.mode] = [];
       selectedOS.multi[0][selectedOS.mode] = false;
-      // console.log("Like Seriously? ", selectedOS);
       setSelectedIS(selectedOS);
 
       setNumber('')
@@ -126,12 +143,12 @@ export default function GetContacts(){
     // if(selectedIS.mode == 1){
     if(mode == 1){
       contact.map(each_1 => {
-        setContactsOS.new_numbers.map((each_2, j) => {
+        setContactsOS.new_numbers[0].map((each_2, j) => {
           if(each_1.id == each_2.id){
             if(action == "update"){
-              setContactsOS.new_numbers[j] = each_1;
+              setContactsOS.new_numbers[0][j] = each_1;
             }else{
-              setContactsOS.new_numbers.splice(j, 1);
+              setContactsOS.new_numbers[0].splice(j, 1);
             }
           }
         });
@@ -143,19 +160,29 @@ export default function GetContacts(){
           
           if(action == "create"){
             contact = contact.filter(each_1 => !setContactsOS.all_numbers.some(each_2 => each_1.phone_number == each_2.phone_number)); // Make sure no duplicates or already does not exist
-            setContactsOS.new_numbers = setContactsOS.new_numbers.filter(each_1 => !contact.some(each_2 => each_1.phone_number == each_2.phone_number)); // Make sure incoming new contacts not already collected or does not exist in the new collections list
-            selectedIS.multi[1][mode] = setContactsOS.new_numbers;
+            setContactsOS.new_numbers[0] = setContactsOS.new_numbers[0].filter(each_1 => !contact.some(each_2 => each_1.phone_number == each_2.phone_number)); // Make sure incoming new contacts not already collected or does not exist in the new collections list
+            selectedIS.multi[1][mode] = setContactsOS.new_numbers[0];
             if(selectedIS.multi[1][mode].length > 0) setAlerts([{from: 2, type: "caution", message: "Numbers taken already cannot be taken again."}, ...alerts]);
           }
-    console.log("Numbers taken already cannot be taken again.", JSON.stringify(contact));
-          // const response = await fetch(`http://localhost:4000/api/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
+          console.log("Numbers taken already cannot be taken again.", JSON.stringify(contact));
+          // const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
+          /* const response = await fetch(`${data.API_URL}/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
               },
               body: JSON.stringify(contact),
-          })
+          }) */
+          const response = await functions.authenticatedFetch(
+              `${data.API_URL}/auth/save-contacts?action=${action}`,
+              {
+                  method: "POST",
+                  headers: {
+                      "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(bodyData),
+              }
+          );
           const responseData = await response.json();
           
           if(responseData.Success){
@@ -164,7 +191,7 @@ export default function GetContacts(){
               if(action == "create"){
                 // setContactsOS.all_numbers.push(each_1);
                 setContactsOS.all_numbers = [each_1, ...setContactsOS.all_numbers];
-                setContactsOS.existing_numbers = [each_1, ...setContactsOS.existing_numbers];
+                if(toGroup.activeGroup.id == "all") setContactsOS.existing_numbers = [each_1, ...setContactsOS.existing_numbers];
               }else{
                 let getIndex_2_1 = setContactsOS.all_numbers.findIndex(each_2 => each_1.id == each_2.id);
                 let getIndex_2_2 = setContactsOS.existing_numbers.findIndex(each_2 => each_1.id == each_2.id);
@@ -186,8 +213,11 @@ export default function GetContacts(){
           setLoading(false);
       }
     }
+    // let new_numbers = setContactsOS.new_numbers[0].length > 0 ? setContactsOS.new_numbers : [[], 1];
     setContactsOS = {...setContactsOS, new_numbers: setContactsOS.new_numbers, all_numbers: setContactsOS.all_numbers, existing_numbers: setContactsOS.existing_numbers};
+    // setContactsOS = {...setContactsOS, new_numbers, all_numbers: setContactsOS.all_numbers, existing_numbers: setContactsOS.existing_numbers};
     setContacts(setContactsOS);
+    console.log("New numbers: ", setContactsOS);
     // processNumberGroup(toGroup.activeGroup);
     selectedOS = {...selectedOS, multi: [[false, false], [[], []]]};
     setSelectedIS(selectedOS);
@@ -199,18 +229,10 @@ export default function GetContacts(){
     setEmail('')
   }
 
-  function getValues(e, type){
-    // type == 0 && setNumber(e.target.value)
-    type == 1 && setName(e.target.value)
-    type == 2 && setEmail(e.target.value)
-
-    setClear(false)
-  }
-
   function processSelected(thisData, mode, remove=false){
-    let callSelf = false, multiSel = selectedIS.multi[1][mode].filter(each => thisData.id == each.id), getContact = [contacts.existing_numbers, contacts.new_numbers];
+    let callSelf = false, multiSel = selectedIS.multi[1][mode].filter(each => thisData.id == each.id), getContact = [contacts.existing_numbers, contacts.new_numbers[0]];
 
-    // console.log("End here...", selectedOS, selectedIS);
+    // console.log("End here...", contacts.new_numbers);
     if(Object.keys(selectedOS.single).length > 0 && thisData.id == selectedOS.single.id || multiSel.length > 0){
       selectedOS = selectedIS;
       selectedOS = {...selectedOS, single: {}, mode: 0};
@@ -258,10 +280,11 @@ export default function GetContacts(){
   }
 
   function prepareSMS(mode){
-    let baseContacts = [contacts.existing_numbers, contacts.new_numbers], finalContacts = selectedIS.multi[1][mode].length > 0 ? selectedIS.multi[1][mode] : baseContacts[mode];
-    console.log("Prep SMS here...", finalContacts);
-    // setSendSMSTo(finalContacts);
-    if(functions.temporaryStore({name: 'sms-list', value: finalContacts}, 1, true)) navigate("/send-sms");
+    let baseContacts = [contacts.existing_numbers, contacts.new_numbers[0]], finalContacts = selectedIS.multi[1][mode].length > 0 ? selectedIS.multi[1][mode] : baseContacts[mode];
+    processCheckAll(false, mode);
+    // console.log("Prep SMS here...", toGroup.activeGroup.group_name || "No name");
+    // if(functions.temporaryStore({name: 'sms-list', value: finalContacts}, 1, true)) navigate("/send-sms");
+    if(functions.temporaryStore({name: 'sms-list', value: [finalContacts, !toGroup.activeGroup.group_name ? "" : toGroup.activeGroup.group_name]}, 1, true)) navigate("/send-sms");
   }
 
   async function sendToGroup(action, mode=0){
@@ -282,15 +305,25 @@ export default function GetContacts(){
         try{
           setLoading(true)
           
-          // const response = await fetch(`http://localhost:4000/api/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
+          // const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
+          /* const response = await fetch(`${data.API_URL}/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
               },
               body: JSON.stringify({group: thisToGroup.addToGroup, contacts: thisToGroup.contactsToAdd}),
               // body: JSON.stringify({group: thisToGroup, contacts: toGroup.contactsToAdd),
-          })
+          }) */
+          const response = await functions.authenticatedFetch(
+              `${data.API_URL}/auth/group-processor?action=${action}`,
+              {
+                  method: "POST",
+                  headers: {
+                      "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({group: thisToGroup.addToGroup, contacts: thisToGroup.contactsToAdd}),
+              }
+          );
           const responseData = await response.json();
           
           if(responseData.Success){
@@ -310,8 +343,9 @@ export default function GetContacts(){
 
                 setName('');
                 setEmail('');
-                selectedOS = {...selectedOS, single: {}};
+                // selectedOS = {...selectedOS, single: {}};
               }
+              selectedOS = {...selectedOS, single: {}};
             });
             // console.log("After...", setContactsOS.groupAssociations);
                 selectedOS = {...selectedOS, multi: [[false, false], [[], []]]};
@@ -382,7 +416,7 @@ export default function GetContacts(){
     if(selectedIS.multi[0][mode]){ // First clear all already selected if in the Check All state
       selectedIS.multi[1][mode].map(contact => processSelected(contact, mode));
     }
-    let selDataType = [contacts.existing_numbers, contacts.new_numbers];
+    let selDataType = [contacts.existing_numbers, contacts.new_numbers[0]];
     selDataType[mode].map(contact => processSelected(contact, mode));
   }
 
@@ -492,7 +526,7 @@ export default function GetContacts(){
         </form>
       </section>
 
-      {contacts.new_numbers.length > 0 && (
+      {contacts.new_numbers[0].length > 0 && (
         <section className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-amber-100 bg-amber-50/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>
@@ -502,7 +536,7 @@ export default function GetContacts(){
               </p>
             </div>
             <span className="w-fit rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-              {contacts.new_numbers.length} pending
+              {contacts.new_numbers[0].length} pending
             </span>
           </div>
           <div className="p-4 sm:p-5">
@@ -517,7 +551,7 @@ export default function GetContacts(){
               Select all pending contacts
             </label>
             <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
-              {contacts.new_numbers.map((contact, index) => (
+              {contacts.new_numbers[0].map((contact, index) => (
                 <div key={contact.id ?? index} className="flex min-w-0 items-start gap-3 p-3 sm:p-4">
                   <input
                     aria-label={`Select ${contact.full_name || contact.phone_number}`}

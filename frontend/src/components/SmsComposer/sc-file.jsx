@@ -9,8 +9,8 @@ export default function ComposeSMS({props}){
     const { values: { data, functions, setStates } } = useAuth();
     const navigate = useNavigate();
 
-    let setSendSMSToOS = [];
-    const [sendSMSTo, setSendSMSTo] = useState('');
+    let setSendSMSToOS = [[], ""];
+    const [sendSMSTo, setSendSMSTo] = useState(setSendSMSToOS);
     const defaultSMS = ["DC Group", "Hi, welcome to DC SMS Portal. Enjoy your experience!"];
     const [sender, senderID] = useState(defaultSMS[0]);
     // const [message, setMessage] = useState('');
@@ -18,8 +18,8 @@ export default function ComposeSMS({props}){
     const [message, setMessage] = useState(defaultSMS[1]);
     // const [slider, setSlider] = useState({controls: false, rangePos: [[1, 1], false], spaceAfter: false});
     const [slider, setSlider] = useState({controls: [false, 0], rangePos: [[1, 1], false], spaceAfter: false});
-    let setPayloadOS = sendSMSTo;
-    const [payload, setPayload] = useState(sendSMSTo);
+    let setPayloadOS = sendSMSTo[0];
+    const [payload, setPayload] = useState(sendSMSTo[0]);
       const [alerts, setAlerts] = useState([])
       const [sending, setSending] = useState(false)
     
@@ -30,23 +30,41 @@ export default function ComposeSMS({props}){
     
     async function settingData(){
         try{
-                // console.log("Check message", `${import.meta.env.VITE_API_URL}/auth/sms-default?action=get`);
             // const response = await fetch(`http://localhost:4000/api/auth/sms-default?action=get`, {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/sms-default?action=get`, {
+            /* const response = await fetch(`${data.API_URL}/auth/sms-default?action=get`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${data.accessToken}`
                 }
-            })
+            }) */
+            const response = await functions.authenticatedFetch(
+                `${data.API_URL}/auth/sms-default?action=get`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
             const responseData = await response.json();
             
+            console.log("Check message", responseData);
             if(responseData.Success){
                 setSendSMSToOS = functions.temporaryStore({name: 'sms-list'}, 0, true);
-                if(!Object.keys(setSendSMSToOS).length > 0) navigate("/dashboard");
+                if(!Object.keys(setSendSMSToOS[0]).length > 0) navigate("/dashboard");
 
                 setSendSMSTo(setSendSMSToOS);
-                responseData.smsDefault.sender && senderID(responseData.smsDefault.sender);
-                responseData.smsDefault.message && setMessage(responseData.smsDefault.message);
+                // responseData.smsDefault.sender && senderID(responseData.smsDefault.sender);
+                if(responseData.smsDefault.sender){
+                    senderID(responseData.smsDefault.sender);
+                }else{
+                    senderID(setSendSMSToOS[1].slice(0, 11) || defaultSMS[0]);
+                }
+                if(responseData.smsDefault.message){
+                    setMessage(responseData.smsDefault.message);
+                }else{
+                    setMessage(defaultSMS[1]);
+                }
                 if(responseData.smsDefault.message) setMessageOS = responseData.smsDefault.message;
                 
                 processSlider([false, 0, 0], 0);
@@ -84,8 +102,8 @@ export default function ComposeSMS({props}){
             setSending(true);
 
             try {
-                console.log('Success: ', JSON.stringify({sender, payload}));
-                const response = await fetch(endpointUrl, {
+                // console.log('Success: ', JSON.stringify({sender, payload}));
+                /* const response = await fetch(endpointUrl, {
                     // Set the method to POST
                     method: 'POST',
                     
@@ -99,7 +117,17 @@ export default function ComposeSMS({props}){
                     // body: JSON.stringify({sender, message, "to": getNumbers}),
                     // body: JSON.stringify({sender, content: [{message, "to": getNumbers}, {message, "to": getNumbers}]}),
                     body: JSON.stringify({sender, payload}),
-                });
+                }); */
+                const response = await functions.authenticatedFetch(
+                    endpointUrl,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({sender, payload}),
+                    }
+                );
 
                 const result = await response.json();
 
@@ -113,7 +141,9 @@ export default function ComposeSMS({props}){
                     setAlerts([{from: 2, type: "caution", message: `Some messages were not sent. ${result.unsentPayloads.length} unsent message(s).`}, ...alerts]);
                 }else{
                     setAlerts([{from: 2, type: "success", message: `All messages were sent successfully.`}, ...alerts]);
-                    if(functions.temporaryStore({name: 'sms-list', value: {}}), 3) navigate("/dashboard");
+
+                    // if(functions.temporaryStore({name: 'sms-list', value: {}}), 3) navigate("/dashboard");
+                    if(functions.temporaryStore({name: 'sms-list', value: []}), 2) navigate("/dashboard");
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -153,7 +183,7 @@ export default function ComposeSMS({props}){
     }
 
     const processSlider = (target, mode, newSlider=[]) => {
-        setSendSMSToOS = setSendSMSToOS.length > 0 ? setSendSMSToOS : sendSMSTo;
+        setSendSMSToOS = setSendSMSToOS[0].length > 0 ? setSendSMSToOS : sendSMSTo;
         setMessageOS = setMessageOS || message;
         setPayloadOS = setPayloadOS || payload;
         if(mode == 0){
@@ -208,7 +238,7 @@ export default function ComposeSMS({props}){
                 }); */
 
                 let get_names = [];
-                setSendSMSToOS.map((contact, index) => {
+                setSendSMSToOS[0].map((contact, index) => {
                     // let thisMessage = message;
                     let thisMessage = (newSlider.controls[0] && newSlider.controls[1] == 1) ? payload[index].message.replaceAll(contact.full_name, "") : message;
                     
@@ -235,7 +265,7 @@ export default function ComposeSMS({props}){
 
                 if(newSlider.controls[0] && newSlider.controls[1] == 0) newSlider = {...newSlider, controls: [true, 1]};
             }else{
-                const getNumbers = setSendSMSToOS.map(contact => contact.phone_number);
+                const getNumbers = setSendSMSToOS[0].map(contact => contact.phone_number);
                 newPayload.push({
                     "message": setMessageOS,
                     "to": getNumbers
@@ -261,26 +291,38 @@ export default function ComposeSMS({props}){
             try{
                 // const response = await fetch(`http://localhost:4000/api/auth/sms-default?user_id=${data.user.user_id}`, {
                 // const response = await fetch(`http://localhost:4000/api/auth/sms-default?action=update`, {
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/sms-default?action=update`, {
+                /* const response = await fetch(`${data.API_URL}/auth/sms-default?action=update`, {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${data.accessToken}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({sender: sender || defaultSMS[0], message: message || defaultSMS[1]}),
-                })
+                }) */
+                const response = await functions.authenticatedFetch(
+                    `${data.API_URL}/auth/sms-default?action=update`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({sender: sender || defaultSMS[0], message: message || defaultSMS[1]}),
+                    }
+                );
                 const responseData = await response.json();
                 
                 // console.log(responseData, JSON.stringify({sender: sender || defaultSMS[0], message: message || defaultSMS[1]}));
                 if(responseData.Success){
-                    senderID(responseData.smsDefault.sender);
+                    // senderID(responseData.smsDefault.sender);
+                    senderID(sendSMSTo[1] || responseData.smsDefault.sender || defaultSMS[0]);
                     setMessage(responseData.smsDefault.message);
                 }
             }catch(error){
                 console.log("This process failed. ", error);
             }
         }else{
-            if(functions.temporaryStore({name: 'sms-list', value: {}}), 3) navigate("/dashboard");
+            // if(functions.temporaryStore({name: 'sms-list', value: {}}), 3) navigate("/dashboard");
+            if(functions.temporaryStore({name: 'sms-list', value: []}), 2) navigate("/dashboard");
         }
     }
 
@@ -288,6 +330,7 @@ export default function ComposeSMS({props}){
     return (
         <div className="mx-auto w-full max-w-6xl space-y-6 text-slate-800">
             {alerts.length > 0 && functions.displayError(alerts)}
+            {/* {console.log(sendSMSTo)} */}
 
             <header className="flex flex-col gap-4 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
                 <div>
@@ -309,7 +352,7 @@ export default function ComposeSMS({props}){
                     </span>
                     <div>
                         <p className="text-xs font-medium text-slate-500">Recipients</p>
-                        <p className="text-lg font-bold text-slate-900">{Array.isArray(sendSMSTo) ? sendSMSTo.length : 0} contact{Array.isArray(sendSMSTo) > 1 ? "s" : ""}</p>
+                        <p className="text-lg font-bold text-slate-900">{sendSMSTo[0] ? sendSMSTo[0].length : 0} contact{sendSMSTo[0].length > 1 ? "s" : ""}</p>
                     </div>
                 </div>
             </header>
@@ -329,7 +372,7 @@ export default function ComposeSMS({props}){
                                 type="text"
                                 value={sender}
                                 onChange={e => senderID(e.target.value)}
-                                maxLength={12}
+                                maxLength={11}
                                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                                 placeholder="e.g. DC Group"
                             />
@@ -433,7 +476,7 @@ export default function ComposeSMS({props}){
                                 disabled={sending}
                                 className="inline-flex items-center justify-center rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {sending ? 'Sending…' : `Send SMS to ${Array.isArray(sendSMSTo) ? sendSMSTo.length : 0} contacts`}
+                                {sending ? 'Sending…' : `Send SMS to ${sendSMSTo[0] ? sendSMSTo[0].length : 0} contact`+(sendSMSTo[0].length > 1 ? "s" : "")}
                             </button>
                         </div>
                     )}
@@ -455,7 +498,7 @@ export default function ComposeSMS({props}){
                             {Array.isArray(payload) && payload.map((eachMess, index) => (
                                 <div key={index} className="rounded-xl border border-slate-200 p-4">
                                     <label htmlFor={`personalized-message-${index}`} className="mb-2 block text-sm font-medium text-slate-700">
-                                        Message {index + 1}{sendSMSTo[index]?.full_name ? ` · ${sendSMSTo[index].full_name}` : ''}
+                                        Message {index + 1}{sendSMSTo[0][index]?.full_name ? ` · ${sendSMSTo[0][index].full_name}` : ''}
                                     </label>
                                     <textarea
                                         id={`personalized-message-${index}`}

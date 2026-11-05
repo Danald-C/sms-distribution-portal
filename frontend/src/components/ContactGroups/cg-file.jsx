@@ -7,7 +7,7 @@ export default function ContactGrouping(){
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [alerts, setAlerts] = useState([]);
-    const [clear, setClear] = useState(false);
+    // const [clear, setClear] = useState(false);
     const [phone_number_groups, setPhone_number_groups] = useState({data: [], pagination: {page: 1, limit: 10, total: 0}});
     const [loading, setLoading] = useState(false);
     const [selected, setSelected] = useState({});
@@ -31,6 +31,7 @@ export default function ContactGrouping(){
     async function submit(e){
         e.preventDefault();
 
+            // console.log(selected)
         if(!name){
             setAlerts([{from: 2, type: "caution", message: "Enter a name for your group."}, ...alerts])
 
@@ -39,79 +40,67 @@ export default function ContactGrouping(){
         
         try{
             setLoading(true)
-            // console.log(data.accessToken)
-            /* const response = await fetch('http://localhost:4000/api/auth/contact-grouping', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({name, description, user_id: data.user.user_id}),
-            })
-            const responseData = await response.json() */
-            // const responseData = await ContactGroupRequest(1, selected ? "update" : "create");
-            const responseData = await ContactGroupRequest(0, Object.keys(selected).length > 0 ? "update" : "create");
+            // const responseData = await ContactGroupRequest(0, Object.keys(selected).length > 0 ? "update" : "create");
+            const responseData = await ContactGroupRequest(Object.keys(selected).length > 0 ? selected.id : 0, Object.keys(selected).length > 0 ? "update" : "create");
 
+                // console.log("From Submit.", selected, responseData.phone_number_groups);
             if(responseData.success){
-                functions.setLoadContent(true);
-                // setStates.ContactsData({phone_number_groups: responseData.phone_number_groups, ...setStates.phoneNumbersData});
-                setPhone_number_groups(responseData.phone_number_groups)
-                /* setSelected({});
-                setName('')
-                setDescription('') */
-                processSelected(Object.keys(selected).length > 0 ? selected : {id: 0}, true);
+                setPhone_number_groups(responseData.phone_number_groups);
             }
-            setClear(true);
-            setAlerts([]);
+            // setClear(true);
+            // setAlerts([]);
         }catch(error){
             //
         }finally{
             setLoading(false)
+            setName('')
+            setDescription('')
+            processSelected({}, true);
         }
     }
 
-    function getValues(e, type){
-        type == 0 && setName(e.target.value)
-        type == 1 && setDescription(e.target.value)
-
-        setClear(false)
-    }
-
-    // async function ContactGroupRequest(mode, action="get", load=false, id=0){
     async function ContactGroupRequest(id, action="get", load=false){
-        // let bodyData = { name: "", description: "" };
-
-        if(Object.keys(selected).length > 0){
-            id = selected.id;
-        }
-            let bodyData = { name, description }
+        let bodyData = { name, description }
 
         // const response = await fetch(`http://localhost:4000/api/auth/contact-grouping?id=${id}&user_id=${data.user.user_id}&action=${action}`, {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/contact-grouping?id=${id}&user_id=${data.user.user_id}&action=${action}`, {
-                method: 'POST',
+        /* const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/contact-grouping?id=${id}&action=${action}`, {
+            method: 'POST',
+            // Define the type of content you are sending
+            headers: {
+                Authorization: `Bearer ${data.accessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(bodyData),
+        } ) */
+        const response = await functions.authenticatedFetch(
+            `${data.API_URL}/auth/contact-grouping?id=${id}&action=${action}`,
+            {
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
+                    "Content-Type": "application/json",
                 },
                 body: JSON.stringify(bodyData),
-            } )
+            }
+        );
         
         if(load){
             try{
                 setLoading(true)
                 const responseData = await response.json();
                 
+                console.log("And finally, loading is set to false.", [id, action], responseData);
                 if(responseData.success){
-                    functions.setLoadContent(true);
                     setPhone_number_groups(responseData.phone_number_groups)
-                    setName('')
-                    setDescription('')
                 }
                 // setClear(true);
                 setAlerts([]);
-                // console.log("And finally, loading is set to false.");
             }catch(error){
                 //
             }finally{
                 setLoading(false)
+                setName('')
+                setDescription('')
+                processSelected({}, true);
             }
         }else{
             return await response.json();
@@ -137,6 +126,7 @@ export default function ContactGrouping(){
 
     return (
         <section className="w-full min-w-0 space-y-6 text-[#13243a]">
+            {/* {console.log("Rendering ContactGrouping component with selected:", phone_number_groups.data, selected)} */}
             {alerts.length > 0 && functions.displayError(alerts)}
 
             <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

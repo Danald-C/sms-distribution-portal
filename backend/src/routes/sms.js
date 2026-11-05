@@ -8,6 +8,7 @@ const csvParse = require('csv-parse');
 const db = require("../db.js"); // your DB connection
 const Middlewares = require('../middleware/authMiddleware');
 const { connectionRedis } = require('../lib/redisClient');
+const { requestSendMail } = require('../lib/email.js');
 // const { processWorker } = require('../worker/sms-worker');
 
 const { Queue } = require('bullmq');
@@ -93,56 +94,60 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
     await enqueueSms({ sender, to, message });
     await processWorker(); */ // start the worker to process SMS jobs
     
-    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user_id }), unit_1 = Number(thisUser.data[0].unit_1), unit_2 = Number(thisUser.data[0].unit_2), remainder = 0;
-  // console.log(thisUser);
+    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user_id }), unit_1 = Number(thisUser.data[0].unit_1), unit_2 = Number(thisUser.data[0].unit_2), totalReceipients = 0;
     // req.body.payload.map(each => Math.max(1, Math.ceil(each.message.length / 160))).reduce((acc, val) => acc + val, 0);
 
-    req.body.payload.map(each => remainder += each.to.length);
-    if(unit_1 != 0){
-      if(remainder >= unit_1){
-        remainder -= unit_1;
-        unit_1 = 0;
+    req.body.payload.map(each => totalReceipients += each.to.length);
+    // First deplete the SMS units from the first unit (unit_1), then from the second unit (unit_2) if needed.
+    // if(unit_1 != 0){
+    if(unit_1 > 0){
+      if(totalReceipients >= unit_1){
+        totalReceipients -= unit_1; // Subtract available units from total recipients
+        unit_1 = 0; // Reset available units to 0 since all have been used
       }else{
-        unit_1 -= remainder;
-        remainder = 0
+        unit_1 -= totalReceipients; // Subtract total recipients from available units
+        totalReceipients = 0 // Reset total recipients to 0 since all have been sent
       }
       await db.functions.tableUpdateRow("users", {id: req.user.user_id, unit_1 });
     }
 
-    if(remainder > 0 && unit_2 != 0){
+    // if(totalReceipients > 0 && unit_2 != 0){
+    if(totalReceipients > 0 && unit_2 > 0){
       // Do SMS Unit deduction from Other...
-      if(unit_2 >= remainder){
-        unit_2 -= remainder;
-        remainder = 0;
+      if(unit_2 >= totalReceipients){
+        unit_2 -= totalReceipients;
+        totalReceipients = 0;
       }else{
-        remainder -= unit_2;
+        totalReceipients -= unit_2;
         unit_2 = 0;
       }
       await db.functions.tableUpdateRow("users", {id: req.user.user_id, unit_2 });
     }
 
   let filteredPayload = [], unsentPayloads = [];
-  if(remainder > 0){
-    // req.body.payload = req.body.payload.slice(-remainder, req.body.payload.length); // Truncate the message list
-    // let totalRecipients = req.body.payload.reduce((acc, each) => acc + each.to.length, 0);
-    // let excessRecipients = totalRecipients - remainder;
+  if(totalReceipients > 0){
     req.body.payload.map(each => {
-      // each.to = each.to.slice(-remainder, each.to.length);
-      if(remainder >= each.to.length){
-        remainder -= each.to.length;
+      if(totalReceipients >= each.to.length){ // To is an array of recipients, so we check the length of the array
+        totalReceipients -= each.to.length;
         filteredPayload.push(each);
-      }else{
-        if(remainder > 0){
-          each.to = each.to.slice(0, each.to.length-remainder);
+      }else{ // totalReceipients will always be smaller than each.to.length here, so we slice the array to only include the remaining recipients
+        if(totalReceipients > 0){
+          // each.to = (each.to.length > totalReceipients) ? each.to.slice(0, each.to.length-totalReceipients) : each.to; // Slice the array to only include the remaining recipients
+          each.to = each.to.slice(0, totalReceipients); // Slice the array to only include the remaining recipients
           filteredPayload.push(each);
-          unsentPayloads.push({ ...each, to: each.to.slice(each.to.length-remainder) }); // All remaining recipients are unsent
-          remainder = 0;
+          // unsentPayloads.push({ ...each, to: each.to.slice(each.to.length-totalReceipients) }); // All remaining recipients are unsent
+          unsentPayloads.push({ ...each, to: each.to.slice(totalReceipients) }); // All remaining recipients are unsent
+          
+          totalReceipients = 0;
         }else{
           unsentPayloads.push(each); // All remaining recipients are unsent
         }
       }
     }); // Truncate the message list
+  }else{
+    filteredPayload = req.body.payload;
   }
+      // console.log('Did you send the request? ', filteredPayload, totalReceipients);
 
     // preSMS_Send(req.body);
     // req.body.payload.map(each => {
@@ -158,7 +163,7 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
     if(filteredPayload.length > 0){
       // Write History here...
       await db.functions.tableCreateRow('activity_history', { user_id: thisUser.data[0].id, type: "SMS", description: `${filteredPayload.length} sms was sent.`, created_at: new Date() });
-      await req.transporter.sendMail({
+      /* await req.transporter.sendMail({
         from: process.env.EMAIL_ADDRESS,
         to: process.env.EMAIL_ADDRESS,
         subject: "SMS SENT!!",
@@ -171,6 +176,19 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
 
             <p>The user with the above details sent <b>${filteredPayload.length}</b> sms on this date ${new Date()}.</p>
         `
+      }); */
+      requestSendMail({
+        from: null,
+        to: null,
+        subject: 'SMS SENT!!',
+        text: ``,
+        html: `<h2>SMS was sent.</h2>
+
+            <p><b>Name:</b> ${thisUser.data[0].full_name}</p>
+            <p><b>Email:</b> ${thisUser.data[0].email}</p>
+            <p><b>Phone:</b> ${thisUser.data[0].phone_number}</p>
+
+            <p>The user with the above details sent <b>${filteredPayload.length}</b> sms on this date ${new Date()}.</p>` 
       });
     }
     

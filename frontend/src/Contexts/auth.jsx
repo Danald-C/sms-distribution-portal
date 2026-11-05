@@ -99,40 +99,6 @@ function AuthProvider({ children }) {
   const authOperationRef = useRef(0);
 
   /* useEffect(() => {
-    // Try to refresh token on app load
-    async function refresh() {
-      try {
-        // const storedToken = localStorage.getItem("token");
-        let storedToken = temporaryStore({name: "token"});
-        if(storedToken){
-          console.log("Stored Token..", storedToken);
-          // const storedUser = localStorage.getItem("user");
-          const response = await fetch(`${API_URL}/auth/refresh`, {
-            headers: {
-              Authorization: `Bearer ${storedToken}`,
-            },
-          });
-          let storedUser = await response.json();
-          // const resPhoneNumbers = await fetch(`http://localhost:4000/api/auth/fetch-contacts?page=1&limit=10&user_id="${storedUser.user.user.user_id}"`, {  })
-          // let contacts = await resPhoneNumbers.json();
-          // console.log("This one...", storedUser)
-          if(storedUser.Success){ 
-            setAccessToken(storedToken)
-            setUser(storedUser.user);
-            setPhoneNumbersData(storedUser.allData);
-          }
-        }
-      } catch (e) {
-          console.log('refresh failed', e);
-      }finally{
-        // console.log('Did we get here after all?');
-        setLoading(false);
-      }
-    }
-    refresh();
-    // loadPage();
-  }, []); */
-  /* useEffect(() => {
     let cancelled = false;
 
     // Identify this particular restoration attempt.
@@ -237,16 +203,14 @@ function AuthProvider({ children }) {
 
     // Assign an ID to this specific restoration attempt.
     const operationId = ++authOperationRef.current;
-
-    const isCurrentOperation = () =>
-        !cancelled &&
-        authOperationRef.current === operationId;
+    const isCurrentOperation = () => !cancelled && authOperationRef.current === operationId;
 
     async function refresh() {
         try {
             setLoading(true);
 
             const refreshResult = await requestRefreshToken(API_URL);
+    // console.log("In AuthContext: ", refreshResult);
 
             // Ignore results from outdated operations.
             if (!isCurrentOperation()) return;
@@ -276,20 +240,14 @@ function AuthProvider({ children }) {
                 );
             }
 
-            temporaryStore({
-                name: 'token',
-                value: newToken
-            }, 1);
+            temporaryStore({name: 'token', value: newToken}, 1);
 
-            const profileResponse = await fetch(
-                `${API_URL}/auth/reload-data`,
-                {
-                    method: 'GET',
-                    headers: {
-                        Authorization: `Bearer ${newToken}`
-                    }
-                }
-            );
+            const profileResponse = await fetch(`${API_URL}/auth/reload-data`, {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${newToken}`
+              }
+            });
 
             if (!isCurrentOperation()) return;
 
@@ -343,35 +301,63 @@ function AuthProvider({ children }) {
 
 
   
-  async function loadPage() {
-    try {
-      setLoading(true);
 
-      // const response = await fetch(`http://localhost:4000/api/auth/get-contacts?page=1&limit=10&user_id=${user.id}`, {  })
-      // let contacts = await response.json();
-    } catch (e) {
-        console.log('Could not load phone numbers, ', e);
-        // setAlerts([{from: 2, type: "warning", message: `Could not load phone numbers, ${e}`}]);
-    }finally{
-      setLoading(false);
+
+
+  async function authenticatedFetch(url, options = {}) {
+    const currentToken = accessToken;
+
+    const sendRequest = (token) => {
+      const headers = new Headers(options.headers || {});
+      headers.set("Authorization", `Bearer ${token}`);
+
+      return fetch(url, {
+        ...options,
+        headers,
+        // Preserve any existing credentials option, otherwise use same-origin.
+        credentials: options.credentials ?? "same-origin",
+      });
+    };
+
+    let response = await sendRequest(currentToken);
+      // console.log('Old Token ', currentToken)
+
+    if (response.status !== 401) {
+      return response;
     }
+
+    const errorData = await response.clone().json().catch(() => null);
+
+    // Only refresh for the backend's observed expired/invalid access-token response.
+    if (errorData?.error !== "Invalid or expired token") {
+      return response;
+    }
+
+    const refreshResult = await requestRefreshToken(API_URL);
+
+    if (!refreshResult.ok || !refreshResult.data?.accessToken) {
+      // Refresh cookie is missing/invalid/expired; end the local session.
+      authOperationRef.current += 1;
+      temporaryStore({ name: "token" }, 2);
+      setAccessToken(null);
+      setUser(null);
+      setPhoneNumbersData([]);
+      setAuthReady(true);
+      return response;
+    }
+
+    const newToken = refreshResult.data.accessToken;
+      // console.log('New Token ', newToken)
+
+    temporaryStore({ name: "token", value: newToken }, 1);
+    setAccessToken(newToken);
+
+    // Retry once only. Do not recursively refresh if this request also fails.
+    return sendRequest(newToken);
   }
 
 
 
-  /* async function processLL(data) { // Local Login
-    // console.log("Data Entry", data);
-
-    // localStorage.setItem('token', data.token)
-    let token = temporaryStore({name: "token", value: data.token}, 1);
-
-    // setAccessToken(localStorage.getItem('token'));
-    setAccessToken(token);
-    
-    setUser(data.user);
-    setPhoneNumbersData(data.allData);
-  } */
-  
   /* function processGL(data) { // Google Login
     // setGateway('google');
     // localStorage.setItem('token', JSON.stringify(data.token))
@@ -388,7 +374,7 @@ function AuthProvider({ children }) {
     setUser(data.user);
     setPhoneNumbersData(data.allData);
   } */
-  function processLL(data) {
+  /* function processLL(data) {
     const tokenValue = data?.token || data?.accessToken;
 
     if (!tokenValue) {
@@ -403,10 +389,65 @@ function AuthProvider({ children }) {
 
     setAccessToken(tokenValue);
     setUser(data.user || null);
+    console.log("In the login: ", data.allData);
     setPhoneNumbersData(data.allData || []);
 
     setLoading(false);
     setAuthReady(true);
+
+    return true;
+  } */
+ async function processLL(data) {
+    const tokenValue = data?.token || data?.accessToken;
+
+    if (!tokenValue) {
+      console.error("Login response did not contain an access token.");
+      return false;
+    }
+
+    // Invalidate any startup session-restoration request still in progress.
+    const operationId = ++authOperationRef.current;
+
+    temporaryStore({ name: "token", value: tokenValue }, 1);
+
+    // Establish the login immediately using the response data.
+    setAccessToken(tokenValue);
+    setUser(data.user || null);
+    setPhoneNumbersData(data.allData || []);
+    setLoading(true);
+    setAuthReady(true);
+
+    try {
+      const response = await fetch(`${API_URL}/auth/reload-data`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${tokenValue}`,
+        },
+      });
+
+      const profileData = await response.json();
+
+      // Ignore this response if another auth operation happened meanwhile.
+      if (authOperationRef.current !== operationId) {
+        return true;
+      }
+
+      if (!response.ok || !profileData.Success) {
+        throw new Error(
+          `Profile request failed: HTTP ${response.status}`
+        );
+      }
+
+      setUser(profileData.user || data.user || null);
+      setPhoneNumbersData(profileData.allData || []);
+    } catch (error) {
+      // Login itself succeeded; keep the login response's user/data as fallback.
+      console.error("[AUTH] Could not reload profile after login:", error);
+    } finally {
+      if (authOperationRef.current === operationId) {
+        setLoading(false);
+      }
+    }
 
     return true;
   }
@@ -599,6 +640,7 @@ function AuthProvider({ children }) {
     accessToken,
     loading,
     authReady,
+    authOperationRef,
     // loadContent,
     phoneNumbersData
   }, functions: {
@@ -614,7 +656,8 @@ function AuthProvider({ children }) {
     displayError,
     processError,
     // setLoadContent,
-    setPhoneNumbersData
+    setPhoneNumbersData,
+    authenticatedFetch
   }}
 
   

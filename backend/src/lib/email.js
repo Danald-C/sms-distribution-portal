@@ -1,6 +1,5 @@
 const nodemailer = require('nodemailer')
-const sgKey = process.env.SENDGRID_API_KEY;
-// let sendReuseAlert;
+// const sgKey = process.env.SENDGRID_API_KEY;
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -11,7 +10,19 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const sendReuseAlert = async ({ userId, ip, device, refreshToken }) => {
+const useNodeMailer = () => {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_ADDRESS,
+      pass: process.env.EMAIL_PASSWORD
+    }
+  });
+
+  return transporter;
+}
+
+/* const sendReuseAlert = async ({ userId, ip, device, refreshToken }) => {
   await transporter.sendMail({
     from: process.env.ALERT_FROM_EMAIL,
     to: process.env.ALERT_TO_EMAIL,
@@ -24,9 +35,20 @@ export const sendReuseAlert = async ({ userId, ip, device, refreshToken }) => {
       <p><strong>Refresh Token:</strong> ${refreshToken}</p>
     `,
   });
-};
+}; */
 
-if (foundToken.isInvalidated || tokenNotInWhitelist) {
+const requestSendMail = async (params) => {
+  const transporter = useNodeMailer();
+  await transporter.sendMail({
+    from: params.from || process.env.EMAIL_ADDRESS,
+    to: params.to || process.env.EMAIL_ADDRESS, // If no recipient is provided, send to the default email address.
+    subject: params.subject || `New message!!`,
+    text: params.text || ``,
+    html: params.html || ``
+  });
+}
+
+/* if (foundToken.isInvalidated || tokenNotInWhitelist) {
    await sendReuseAlert({
       userId: foundToken.userId,
       ip: req.ip,
@@ -97,6 +119,6 @@ console.warn("TOKEN REUSE DETECTED:", {
   userId: foundToken.userId,
   ip: req.ip,
   userAgent: req.headers["user-agent"]
-});
+}); */
 
-module.exports = { sendReuseAlert };
+module.exports = { requestSendMail };

@@ -65,6 +65,7 @@ export default function Dashboard() {
   const { values: { data, functions } } = useAuth()
   const [displayComp, setDisplayComp] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    console.log("In the Dashboard: ", data.allData);
 
   const selectComponent = (id) => {
     setDisplayComp(id)

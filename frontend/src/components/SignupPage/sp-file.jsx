@@ -91,7 +91,7 @@ export default function SignupPage() {
       
       const result = await response.json();
 
-      console.log('Check Validate Number', result)
+      // console.log('Check Validate Number', result)
       
       if (!result.Success || result.Success && result.newUser.taken) {
       // if (!result.Success) {

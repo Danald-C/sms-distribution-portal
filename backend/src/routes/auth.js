@@ -10,9 +10,11 @@ const crypto = require('crypto')
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require("nodemailer");
 
-const Middlewares = require('../middleware/authMiddleware');
+// const Middlewares = require('../middleware/authMiddleware');
+const {authMiddleware, verifyJWTMiddleware, getVerified, emailTransporter, environmentV} = require('../middleware/authMiddleware');
 const oAuth = require('../api/auth/oAuthController')
 const { preSMS_Send } = require('./sms')
+const { requestSendMail } = require('../lib/email.js');
 
 const { redis, REUSE_WINDOW_SEC } = require('../lib/redisClient');
 // const { sendReuseAlert } = require('../lib/email');
@@ -488,14 +490,6 @@ router.post('/forgot-password-email', async (req, res) => {
     // const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
     const resetUrl = `${frontendUrl}/reset-password?type=email&token=${encodeURIComponent(rawToken)}`;
 
-    /* const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_ADDRESS,
-        pass: process.env.EMAIL_PASSWORD
-      }
-    }); */
-
     // Replace any previously issued password-reset tokens for this user.
     await client.query('BEGIN');
 
@@ -519,34 +513,6 @@ router.post('/forgot-password-email', async (req, res) => {
 
     // Send the email before committing, matching the existing
     // registration-verification pattern.
-    /* await transporter.sendMail({
-      from: process.env.EMAIL_ADDRESS,
-      to: user.email,
-      subject: 'Reset your DC SMS Portal password',
-      text:
-        `Hello ${user.full_name || 'there'},\n\n` +
-        `We received a request to reset your password.\n\n` +
-        `Open this link to choose a new password:\n${resetUrl}\n\n` +
-        `This link expires in 30 minutes and can only be used once.\n\n` +
-        `If you did not request a password reset, you can ignore this email.`,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-          <h2>Reset your password</h2>
-          <p>Hello ${String(user.full_name || 'there').replace(/[&<>"']/g, '')},</p>
-          <p>We received a request to reset your DC SMS Portal password.</p>
-          <p>
-            <a
-              href="${resetUrl}"
-              style="display:inline-block;padding:12px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px"
-            >
-              Reset password
-            </a>
-          </p>
-          <p>This link expires in 30 minutes and can only be used once.</p>
-          <p>If you did not request a password reset, you can ignore this email.</p>
-        </div>
-      `
-    }); */
     requestSendMail({
       from: null,
       to: user.email,
@@ -604,11 +570,10 @@ router.post('/forgot-password-number', async (req, res) => {
     }
 
     let returnedOTP = await db.functions.tableGetRows("public.phone_otp", { user_id: thisUser.id, type: "password_reset" }), thisOtp = returnedOTP.data[0];
-    // let returnedOTP = await db.functions.tableGetRows("public.phone_otp", { user_id: thisUser.id }), thisOtp = returnedOTP.data[0];
     let complete = false;
     const {newOTP, otpMessage, otpMessFrom, expiresAt} = generateOTP();
     if(!thisOtp){ // Sending
-      // await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
+      await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
       await db.functions.removeUser('public.phone_otp', { user_id: thisUser.id, type: 'password_reset' });
       await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp: newOTP, type: "password_reset", expires_at: expiresAt });
 
@@ -623,7 +588,6 @@ router.post('/forgot-password-number', async (req, res) => {
           if(thisOtp.otp == otp){ // Otp is correct
             console.log("OTP is valid");
             // await db.functions.removeUser('public.phone_otp', { user_id: thisUser.id, otp, type: "password_reset" });
-            // await db.functions.removeUser('public.phone_otp', { user_id: thisUser.id, otp });
 
             complete = true;
           }else{ // Otp is not correct
@@ -634,8 +598,7 @@ router.post('/forgot-password-number', async (req, res) => {
           console.log(`OTP has expired. New one resent ${newOTP}`);
           
           await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
-          // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
-          // await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
+          await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
         }
       }else{ // User did not enter otp
         console.log("User did not submit OTP");
@@ -644,8 +607,7 @@ router.post('/forgot-password-number', async (req, res) => {
           console.log(`Current OTP has expired. New one resent ${newOTP}`);
           
           await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
-          // await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
-          // await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
+          await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
         }else{
           console.log("Current OTP has NOT expired. Waiting for user submission");
           return res.status(503).json({error: 'You must enter the otp sent to you.'});
@@ -779,9 +741,11 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-router.get('/get-user', Middlewares.verifyJWTMiddleware, async (req, res) => {
+// router.get('/get-user', Middlewares.verifyJWTMiddleware, async (req, res) => {
+router.get('/get-user', authMiddleware, async (req, res) => {
   try{
-    let returnedUser = await db.functions.tableGetRows("users", { id: req.user.user_id }), thisUser = returnedUser.data[0];
+    // let returnedUser = await db.functions.tableGetRows("users", { id: req.user.user_id }), thisUser = returnedUser.data[0];
+    let returnedUser = await db.functions.tableGetRows("users", { id: req.user.id }), thisUser = returnedUser.data[0];
     // console.log("Get User: ", thisUser);
     res.json({ Success: true, user: thisUser });
   }catch(error){
@@ -791,14 +755,17 @@ router.get('/get-user', Middlewares.verifyJWTMiddleware, async (req, res) => {
 });
 
 // Verify Number
-router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => {
+// router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => {
+// router.post('/verify-number', emailTransporter, async (req, res) => {
+router.post('/verify-number', authMiddleware, async (req, res) => {
   try{
     // Verify Token
     const authHeader = req.headers.authorization;
-    let verified = Middlewares.getVerified(authHeader), status = {success: false, complete: false, otp: {code: '', sent: false, resent: false}, error: {state: false, message: ""}}, user_id = verified.user_id, returnedUser = await db.functions.tableGetRows("users", { id: user_id }), thisUser = returnedUser.data[0];
+    // let activeSession = getVerified(authHeader), status = {success: false, complete: false, otp: {code: '', sent: false, resent: false}, error: {state: false, message: ""}}, user_id = activeSession.user_id, returnedUser = await db.functions.tableGetRows("users", { id: user_id }), thisUser = returnedUser.data[0];
+    let status = {success: false, complete: false, otp: {code: '', sent: false, resent: false}, error: {state: false, message: ""}}, user_id = req.user.id, returnedUser = await db.functions.tableGetRows("users", { id: user_id }), thisUser = returnedUser.data[0];
 
     // console.log(await db.functions.removeUser("users", { id: "6d6eafe9-1778-46f0-8a77-9c99309a99f7" }))
-    if(verified){
+    // if(activeSession){
       // Process OTP
       // const otp = Math.floor(100000 + Math.random() * 900000).toString(), otpMessage = `Your OTP is ${otp}. It expires in 10 minutes.`, otpMessFrom = "DC Soft";
       const {newOTP, otpMessage, otpMessFrom, expiresAt} = generateOTP();
@@ -818,11 +785,11 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
           if(!thisOtp || req.body.otp.resend){
             if(req.body.otp.resend){
               await db.functions.removeUser('public.phone_otp', { otp: thisOtp.otp });
-              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, type: 'phone_verification', expires_at: expiresAt });
               // status = {...status, resent: true};
               status = {...status, otp: {...status.otp, resent: true}};
             }else{
-              await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+              await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp: newOTP, type: 'phone_verification', expires_at: expiresAt });
             }
             await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
 
@@ -842,7 +809,7 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
               status = {...status, complete: true};
               // status.complete = true;
             }else{ // Submitted or entered by user but expired so resend
-              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, type: 'phone_verification', expires_at: expiresAt });
               await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
 
               // status = {...status, resent: true, error: {state: true, message: "OTP expired. A new OTP has been sent."}};
@@ -854,7 +821,7 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
           }else{ // No OTP submitted to us or entered by user. Check already sent OTP life-line.
             status = {...status, success: false, error: {state: false, message: "Invalid OTP. Please try again."}};
             if(new Date(thisOtp.expires_at).getTime() < new Date().getTime()){
-              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, expires_at: expiresAt });
+              await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp: newOTP, type: 'phone_verification', expires_at: expiresAt });
               await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
               
               // status = {...status, resent: true, error: {state: false, message: ""}};
@@ -867,9 +834,9 @@ router.post('/verify-number', Middlewares.emailTransporter, async (req, res) => 
           // status = {...status, otp: {...status.otp, code: otp}};
         }
       }
-    }else{
-      status = {...status, error: {state: true, message: "User not verified."}};
-    }
+    /* }else{
+      status = {...status, error: {state: true, message: "Active session expired."}};
+    } */
 
             console.log("DID WE GET HERE?????", status)
     res.json({ status, user: thisUser });
@@ -922,9 +889,11 @@ router.get('/remove-all-users', async (req, res) => {
   }
 });
 
-router.get('/remove-user', Middlewares.verifyJWTMiddleware, (req, res) => {
+// router.get('/remove-user', Middlewares.verifyJWTMiddleware, (req, res) => {
+router.get('/remove-user', authMiddleware, (req, res) => {
   try{
-    removeUser(req.user.user_id);
+    // removeUser(req.user.user_id);
+    removeUser(req.user.id);
     // console.log(user);
   
     res.json({ Success: true });
@@ -935,23 +904,27 @@ router.get('/remove-user', Middlewares.verifyJWTMiddleware, (req, res) => {
 });
 
 // Save Contacts
-router.post('/save-contacts', async (req, res) => {
+router.post('/save-contacts', authMiddleware, async (req, res) => {
   try{
     // console.log(req.body)
     // req.body.contacts.map(async (person) => await db.functions.tablecreateRow("phone_numbers", {user_id: req.body.user_id, phone_number: person[1], date_created: new Date(), full_name: person[0], email: person[2] ? person[2] : "" }))
     if(req.query.action == "create"){
-      req.body.map(async (person) => await db.functions.tableCreateRow("phone_numbers", {user_id: req.query.user_id, phone_number: person.phone_number, created_at: new Date(), full_name: person.full_name, email: person.email || "" }));
+      // req.body.map(async (person) => await db.functions.tableCreateRow("phone_numbers", {user_id: req.query.user_id, phone_number: person.phone_number, created_at: new Date(), full_name: person.full_name, email: person.email || "" }));
+      req.body.map(async (number) => await db.functions.tableCreateRow("phone_numbers", {user_id: req.user.id, phone_number: number.phone_number, created_at: new Date(), full_name: number.full_name, email: number.email || "" }));
     }
     if(req.query.action == "update"){
-      req.body.map(async (person) => await db.functions.tableUpdateRow("phone_numbers", {id: person.id, full_name: person.full_name, phone_number: person.phone_number, email: person.email }));
+      req.body.map(async (number) => await db.functions.tableUpdateRow("phone_numbers", {id: number.id, full_name: number.full_name, phone_number: number.phone_number, email: number.email }));
     }
     if(req.query.action == "remove"){
-      req.body.map(async (person) => {
-        await db.functions.removeUser("pngroups_and_pn_association", { phone_number_id: person.id, user_id: req.query.user_id });
-        await db.functions.removeUser("phone_numbers", { id: person.id, user_id: req.query.user_id });
+      req.body.map(async (number) => {
+        // await db.functions.removeUser("pngroups_and_pn_association", { phone_number_id: person.id, user_id: req.query.user_id });
+        await db.functions.removeUser("pngroups_and_pn_association", { phone_number_id: number.id, user_id: req.user.id });
+        // await db.functions.removeUser("phone_numbers", { id: person.id, user_id: req.query.user_id });
+        await db.functions.removeUser("phone_numbers", { id: number.id, user_id: req.user.id });
       })
     }
-    let phone_numbers = await db.functions.tableGetRows('phone_numbers', { user_id: req.query.user_id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
+    // let phone_numbers = await db.functions.tableGetRows('phone_numbers', { user_id: req.query.user_id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
+    let phone_numbers = await db.functions.tableGetRows('phone_numbers', { user_id: req.user.id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
     // console.log(phone_numbers)
   
     res.json({ Success: true, phone_numbers });
@@ -961,34 +934,36 @@ router.post('/save-contacts', async (req, res) => {
 });
 
 // Save Contacts
-router.post('/contact-grouping', async (req, res) => {
+// router.post('/contact-grouping', Middlewares.verifyJWTMiddleware, async (req, res) => {
+router.post('/contact-grouping', authMiddleware, async (req, res) => {
   try{
-    // let newRecord = await db.functions.tablecreateRow("phone_number_groups", {user_id: req.body.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() })
     if(req.query.action == "create"){
-      // await db.functions.tableCreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, date_created: new Date() });
-      await db.functions.tableCreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, created_at: new Date() });
+      // await db.functions.tableCreateRow("phone_number_groups", {user_id: req.query.user_id, group_name: req.body.name, group_description: req.body.description, created_at: new Date() });
+      await db.functions.tableCreateRow("phone_number_groups", {user_id: req.user.id, group_name: req.body.name, group_description: req.body.description, created_at: new Date() });
     }
     if(req.query.action == "update"){
       await db.functions.tableUpdateRow("phone_number_groups", {id: req.query.id, group_name: req.body.name, group_description: req.body.description });
     }
     if(req.query.action == "remove"){
-      await db.functions.removeUser("phone_number_groups", { id: req.query.id, user_id: req.query.user_id });
+      await db.functions.removeUser("phone_number_groups", { id: req.query.id, user_id: req.user.id });
     }
-    let phone_number_groups = await db.functions.tableGetRows('phone_number_groups', { user_id: req.query.user_id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
-      // console.log(phone_number_groups);
-  
+    let phone_number_groups = await db.functions.tableGetRows('phone_number_groups', { user_id: req.user.id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
+    // console.log(phone_number_groups);
+
     res.json({ success: true, phone_number_groups });
   }catch(error){
-    res.json( {success: false, error: 'Could not create group,'+ error} );
+    res.json( {success: false, error: 'Could not process group, '+ error} );
   }
 });
 
-router.post('/group-processor', async (req, res) => {
+router.post('/group-processor', authMiddleware, async (req, res) => {
   try{
-    let phoneNumGrpAssociations = await db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.query.user_id });
+    // let phoneNumGrpAssociations = await db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.query.user_id });
+    let phoneNumGrpAssociations = await db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.user.id });
     req.body.contacts.map(async (each_1) => {
       if(req.query.action == "remove"){
-        await db.functions.removeUser("pngroups_and_pn_association", { group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.query.user_id });
+        // await db.functions.removeUser("pngroups_and_pn_association", { group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.query.user_id });
+        await db.functions.removeUser("pngroups_and_pn_association", { group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.user.id });
         if(phoneNumGrpAssociations.data.length > 0){
           let indexToRemove = phoneNumGrpAssociations.data.findIndex(each_2 => each_2.group_id == req.body.group.id && each_2.phone_number_id == each_1.id);
           indexToRemove >= 0 && phoneNumGrpAssociations.data.splice(indexToRemove, 1);
@@ -996,12 +971,14 @@ router.post('/group-processor', async (req, res) => {
       }
       if(req.query.action == "add"){
         if(!phoneNumGrpAssociations.data.some(each_2 => each_2.group_id == req.body.group.id && each_2.phone_number_id == each_1.id)){
-          phoneNumGrpAssociations.data.push(await db.functions.tableCreateRow("pngroups_and_pn_association", {group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.query.user_id }))
+          // phoneNumGrpAssociations.data.push(await db.functions.tableCreateRow("pngroups_and_pn_association", {group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.query.user_id }))
+          phoneNumGrpAssociations.data.push(await db.functions.tableCreateRow("pngroups_and_pn_association", {group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.user.id }))
         }
       }
     });
         // console.log(phoneNumGrpAssociations);
     // phoneNumGrpAssociations = db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.query.user_id });
+    phoneNumGrpAssociations = db.functions.tableGetRows("pngroups_and_pn_association", { user_id: req.user.id });
 
     res.json({Success: true, phoneNumGrpAssociations});
   }catch(error){
@@ -1009,27 +986,19 @@ router.post('/group-processor', async (req, res) => {
   }
 });
 
-router.post('/sms-default', Middlewares.verifyJWTMiddleware, async (req, res) => {
+// router.post('/sms-default', Middlewares.verifyJWTMiddleware, async (req, res) => {
+router.post('/sms-default', authMiddleware, async (req, res) => {
   // console.log("Are we reaching here?", req.user);
   try{
-    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user_id });
+    // let thisUser = await db.functions.tableGetRows("users", { id: req.user.user_id });
+    let thisUser = await db.functions.tableGetRows("users", { id: req.user.id });
     thisUser = thisUser.data[0];
     if(req.query.action == "update"){
-      thisUser = await db.functions.tableUpdateRow("users", {id: req.user.user_id, sender: req.body.sender, message: req.body.message });
+      // thisUser = await db.functions.tableUpdateRow("users", {id: req.user.user_id, sender: req.body.sender, message: req.body.message });
+      thisUser = await db.functions.tableUpdateRow("users", {id: req.user.id, sender: req.body.sender, message: req.body.message });
     }
 
     res.json({ Success: true, smsDefault: {sender: thisUser.sender, message: thisUser.message}});
-  }catch(error){
-    res.json( {error: 'Unfortunately, this process failed. '+ error} );
-  }
-});
-
-router.post('/fetch-contacts', async (req, res) => {
-  try{
-    console.log(req.query.user_id);
-    // getPhoneNumbers(req.query.page, req.query.limit, req.query.user_id)
-
-    // res.json({ status: "Success" });
   }catch(error){
     res.json( {error: 'Unfortunately, this process failed. '+ error} );
   }
@@ -1039,16 +1008,9 @@ router.post('/fetch-contacts', async (req, res) => {
 // Refresh access token using the HttpOnly refresh cookie.
 router.post('/refresh', async (req, res) => {
   try {
-    console.log('[AUTH REFRESH DEBUG]', {
-      cookieParserAvailable: Boolean(req.cookies),
-      cookieNames: Object.keys(req.cookies || {}),
-      configuredCookieName: REFRESH_COOKIE_NAME,
-      refreshCookiePresent: Boolean(
-          req.cookies?.[REFRESH_COOKIE_NAME]
-      )
-    });
     const cookieValue = req.cookies?.[REFRESH_COOKIE_NAME];
 
+    // console.log('[AUTH REFRESH DEBUG] Cookie value:', cookieValue);
     if (!cookieValue) {
       clearRefreshCookie(res);
 
@@ -1071,13 +1033,6 @@ router.post('/refresh', async (req, res) => {
     const tokenPlain = cookieValue.slice(separator + 1);
 
     const row = await tokenStore.getRefreshRowByTokenId(tokenId);
-    console.log('[AUTH REFRESH DEBUG] Token lookup:', {
-      tokenRecordFound: Boolean(row),
-      tokenRevoked: row?.revoked ?? null,
-      tokenExpired: row?.expires_at
-          ? new Date(row.expires_at) <= new Date()
-          : null
-  });
 
     if (!row) {
       clearRefreshCookie(res);
@@ -1120,13 +1075,13 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
-    /* const users = await dbQuery(
-      `SELECT id, full_name, email, role
-       FROM public.users
-       WHERE id = $1
-       LIMIT 1`,
-      [row.user_id]
-    ); */
+    // const users = await dbQuery(
+    //   `SELECT id, full_name, email, role
+    //    FROM public.users
+    //    WHERE id = $1
+    //    LIMIT 1`,
+    //   [row.user_id]
+    // );
     const userResult = await db.functions.tableGetRows(
         'public.users',
         { id: row.user_id },
@@ -1172,6 +1127,7 @@ router.post('/refresh', async (req, res) => {
 
     setRefreshCookie(res, newTokenId, newTokenPlain);
     console.log('[AUTH REFRESH DEBUG] Refresh completed successfully.');
+    // let accessToken = setRefreshToken(req, res);
 
     return res.json({
       Success: true,
@@ -1231,9 +1187,11 @@ router.post('/refresh', async (req, res) => {
   }
 }); */
 // Load the authenticated user's profile and dashboard data.
-router.get('/reload-data', Middlewares.verifyJWTMiddleware, async (req, res) => {
+// router.get('/reload-data', Middlewares.verifyJWTMiddleware, async (req, res) => {
+router.get('/reload-data', authMiddleware, async (req, res) => {
   try {
-    const user_id = req.user.user_id;
+    // const user_id = req.user.user_id;
+    const user_id = req.user.id;
 
     let userResult = await db.functions.tableGetRows('users', { id: user_id });
     let thisUser = userResult?.data?.[0];
@@ -1253,12 +1211,12 @@ router.get('/reload-data', Middlewares.verifyJWTMiddleware, async (req, res) => 
       thisUser = await db.functions.tableUpdateRow('users', {id: user_id, unit_1: defaultUnit, unit_1_created_at: now});
 
       // Reload the user so the response contains updated values.
-      /* userResult = await db.functions.tableGetRows(
+      userResult = await db.functions.tableGetRows(
         'users',
         { id: user_id }
       );
 
-      thisUser = userResult?.data?.[0]; */
+      thisUser = userResult?.data?.[0];
 
       if (!thisUser) {
         return res.status(404).json({
@@ -1305,20 +1263,23 @@ router.get('/reload-data', Middlewares.verifyJWTMiddleware, async (req, res) => 
   }
 });
 
-router.post('/contact-us', Middlewares.emailTransporter, async (req, res) => {
+// router.post('/contact-us', Middlewares.emailTransporter, async (req, res) => {
+router.post('/contact-us', authMiddleware, async (req, res) => {
   try {
-    const transporter = nodemailer.createTransport({
+    /* const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
           user: process.env.EMAIL_ADDRESS,
           pass: process.env.EMAIL_PASSWORD
       }
-    });
+    }); */
     // console.log(transporter);
 
-    await db.functions.tableCreateRow("contact_form", {user_id: req.query.user_id, name: req.body.name, subject: req.body.subject, message: req.body.message, created_at: new Date(), company: req.body.company});
-    let user = await db.functions.tableGetRows("users", { id: req.query.user_id });
-    await req.transporter.sendMail({
+    // await db.functions.tableCreateRow("contact_form", {user_id: req.query.user_id, name: req.body.name, subject: req.body.subject, message: req.body.message, created_at: new Date(), company: req.body.company});
+    await db.functions.tableCreateRow("contact_form", {user_id: req.user.id, name: req.body.name, subject: req.body.subject, message: req.body.message, created_at: new Date(), company: req.body.company});
+    // let user = await db.functions.tableGetRows("users", { id: req.query.user_id });
+    let user = await db.functions.tableGetRows("users", { id: req.user.id });
+    /* await req.transporter.sendMail({
       from: process.env.EMAIL_ADDRESS,
       to: process.env.EMAIL_ADDRESS,
       subject: req.body.subject,
@@ -1331,7 +1292,7 @@ router.post('/contact-us', Middlewares.emailTransporter, async (req, res) => {
 
           <p>${req.body.message}</p>
       `
-    });
+    }); */
     /* await req.transporter.sendMail({
       from: process.env.EMAIL_ADDRESS,
       replyTo: req.body.email,
@@ -1346,6 +1307,33 @@ Regards,
 DC Group</p>
       `
     }); */
+    requestSendMail({
+      from: null,
+      to: req.body.email,
+      // replyTo: req.body.email,
+      subject: 'We\'ve received your message',
+      text: null,
+      html: `<p>Hello ${req.body.name},</p>
+            <p>Thank you for contacting DC Group.</p>
+            <p>We've received your message and one of our team members will respond shortly.</p>
+            <p>
+
+            Regards,
+            DC Group</p>`
+    });
+    requestSendMail({
+      from: null,
+      to: process.env.EMAIL_ADDRESS,
+      subject: req.body.subject,
+      text: null,
+      html: `h2>New Contact Form</h2>
+
+            <p><b>Name:</b> ${req.body.name}</p>
+            <p><b>Email:</b> ${req.body.email}</p>
+            <p><b>Phone:</b> ${user.data[0].phone_number}</p>
+
+            <p>${req.body.message}</p>`
+    });
 
     res.json({Success: true});
   }catch(error){
@@ -1391,7 +1379,6 @@ router.post('/login', express.json(), async (req, res) => {
     // Verify the submitted password against the stored hash.
     const passwordMatches = await bcrypt.compare(password, user.password);
 
-    // console.log("LOGIN: ", passwordMatches)
     if (!passwordMatches) {
       return res.status(401).json({
         error: 'Invalid credentials'
@@ -1428,6 +1415,7 @@ router.post('/login', express.json(), async (req, res) => {
     });
 
     // Set the HttpOnly cookie in tokenId.tokenPlain format.
+    console.log("LOGIN: ", [tokenId, tokenPlain]);
     setRefreshCookie(res, tokenId, tokenPlain);
 
     // Return the access token and public user information.
@@ -1507,30 +1495,8 @@ function generateRefreshToken(number) {
 
 function signAccessToken(user) {
   // const payload = { sub: user.id, email: user.email, name: user.name || null }
-  return jwt.sign(user, Middlewares.environmentV.secret, { expiresIn: Middlewares.environmentV.duration })
-}
-
-function useNodeMailer(){
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_ADDRESS,
-      pass: process.env.EMAIL_PASSWORD
-    }
-  });
-
-  return transporter;
-}
-
-async function requestSendMail(params) {
-  const transporter = useNodeMailer();
-  await transporter.sendMail({
-    from: params.from || process.env.EMAIL_ADDRESS,
-    to: params.to || process.env.EMAIL_ADDRESS, // If no recipient is provided, send to the default email address.
-    subject: params.subject || `New message!!`,
-    text: params.text || ``,
-    html: params.html || ``
-  });
+  // return jwt.sign(user, Middlewares.environmentV.secret, { expiresIn: Middlewares.environmentV.duration })
+  return jwt.sign(user, environmentV.secret, { expiresIn: environmentV.duration })
 }
 
 async function welcomeUserSetup(user, mode=0){
@@ -1616,6 +1582,110 @@ async function removeUser(id){
     }
   });
   await db.functions.removeUser('users', {id: id})
+}
+
+async function setRefreshToken(req, res){
+  const cookieValue = req.cookies?.[REFRESH_COOKIE_NAME];
+
+  // console.log('[AUTH REFRESH DEBUG] Cookie value:', cookieValue);
+  if (!cookieValue) {
+    clearRefreshCookie(res);
+
+    return res.status(401).json({error: 'Refresh token missing'});
+  }
+
+  const separator = cookieValue.indexOf('.');
+
+  if (separator <= 0 || separator === cookieValue.length - 1) {
+    clearRefreshCookie(res);
+
+    return res.status(401).json({error: 'Invalid refresh token format'});
+  }
+
+  const tokenId = cookieValue.slice(0, separator);
+  const tokenPlain = cookieValue.slice(separator + 1);
+
+  const row = await tokenStore.getRefreshRowByTokenId(tokenId);
+  /* console.log('[AUTH REFRESH DEBUG] Token lookup:', {
+    tokenRecordFound: Boolean(row),
+    tokenRevoked: row?.revoked ?? null,
+    tokenExpired: row?.expires_at
+        ? new Date(row.expires_at) <= new Date()
+        : null
+}); */
+
+  if (!row) {
+    clearRefreshCookie(res);
+
+    return res.status(401).json({error: 'Invalid refresh token'});
+  }
+
+  if (row.revoked) {
+    clearRefreshCookie(res);
+
+    return res.status(401).json({error: 'Refresh token has been revoked'});
+  }
+
+  if (new Date(row.expires_at) <= new Date()) {
+    await tokenStore.revokeRefreshRowByTokenId(tokenId);
+    clearRefreshCookie(res);
+
+    return res.status(401).json({error: 'Refresh token expired'});
+  }
+
+  const tokenMatches = await bcrypt.compare(tokenPlain, row.token_hash);
+  console.log('[AUTH REFRESH DEBUG] Token hash comparison:', {
+      tokenMatches
+  });
+
+  if (!tokenMatches) {
+    clearRefreshCookie(res);
+
+    return res.status(401).json({error: 'Invalid refresh token'});
+  }
+
+  /* const users = await dbQuery(
+    `SELECT id, full_name, email, role
+      FROM public.users
+      WHERE id = $1
+      LIMIT 1`,
+    [row.user_id]
+  ); */
+  const userResult = await db.functions.tableGetRows('public.users', { id: row.user_id }, { limit: 1 });
+  const user = userResult?.data?.[0];
+
+  if (!user) {
+      await tokenStore.revokeRefreshRowByTokenId(tokenId);
+      clearRefreshCookie(res);
+
+      return res.status(401).json({error: 'User not found'});
+  }
+
+  const newTokenId = uuidv4();
+  const newTokenPlain = generateRefreshToken(48);
+
+  const expiresAt = new Date(Date.now() + (Number(REFRESH_TOKEN_EXPIRES_DAYS) || 30) * 24 * 60 * 60 * 1000);
+
+  await tokenStore.rotateRefreshToken({
+    oldTokenId: tokenId,
+    userId: user.id,
+    tokenPlain: newTokenPlain,
+    tokenId: newTokenId,
+    ip: req.ip || null,
+    userAgent: req.get('User-Agent') || null,
+    expiresAt
+  });
+
+  const accessToken = signAccessToken({
+    user_id: user.id,
+    full_name: user.full_name,
+    email: user.email,
+    role: user.role
+  });
+
+  setRefreshCookie(res, newTokenId, newTokenPlain);
+
+  return accessToken;
 }
 
 module.exports = router

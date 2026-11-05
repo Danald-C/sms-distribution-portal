@@ -31,9 +31,10 @@ async function authMiddleware(req, res, next) {
     } catch (err) {
       return res.status(401).json({ error: 'Invalid or expired token' })
     }
+    // console.log('authMiddleware payload', payload);
 
     // const user = await getUserById(payload.sub)
-    let user = await db.functions.tableGetRows("users", { id: payload.sub });
+    let user = await db.functions.tableGetRows("users", { id: payload.user_id });
     if (!user.data[0]) return res.status(401).json({ error: 'User not found' })
 
     req.user = user.data[0]

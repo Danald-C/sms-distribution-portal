@@ -38,117 +38,7 @@ export default function VerifyContactPage(){
 
     // CNAME @ vxnnyeyy.up.railway.app
     // TXT _railway-verify railway-verify=8fdba417310f1b70c2b732c6eb0198744be4d92c620281e2a25527ec66080516
-    /* useEffect(async () => {
-        console.log("VerifyContactPage mounted");
-        // localRedirect = {state: true, in: 10, to: "/signup"};
-        // functions.temporaryStore({name: "redirect", value: localRedirect}, 1, true);
-        console.log("[DEBUG] Effect executed", {
-            time: new Date().toISOString(),
-            otpSent,
-            resendAt,
-            isSending
-        });
-
-        const controller = new AbortController();
-        if(otpSent){
-            if(number || functions.temporaryStore({name: "uPhoneNumber"})){
-                let thisNum = number || functions.temporaryStore({name: "uPhoneNumber"});
-                setNumber(thisNum);
-                functions.temporaryStore({name: "uPhoneNumber"}, 2);
-                console.log("OTP sent to found number", otp);
-                // processRequest(thisNum, otp);
-            }else{
-                console.log("OTP sent BUT no number");
-                await defaultValidate(controller);
-            }
-        }else{
-            console.log("Getting ready to redirect...");
-            console.log(functions.temporaryStore({name: "redirect"}, 0, true));
-            if(functions.temporaryStore({name: "redirect"}, 0, true)){
-                localRedirect = functions.temporaryStore({name: "redirect"}, 0, true);
-                setRedirect(localRedirect);
-            }
-            if(!localRedirect.state || !redirect.state) await defaultValidate(controller);
-        }
-    //   setOtp({...otp, resent: false});
-        
-        console.log("When do we come here?", localIsSending, isSending, localRedirect, otpSent);
-        // const RESEND_COOLDOWN = 60
-        // if (!resendAt) return
-        // if (countdown <= 0) return
-        
-        let clearRedirect, clearResendOTP;
-        
-        if(localRedirect.in > 0 && localRedirect.state){
-            // redirectPage();
-            // clearRedirect = setInterval(redirectPage, 1000);
-        }
-
-        // if(localIsSending || isSending){
-        //     localIsSending = false;
-        //     setIsSending(localIsSending);
-        //     setOtp({...otp, resent: false});
-        //     updateCountdown();
-        //     clearResendOTP = setInterval(updateCountdown, 1000)
-        // }
-       return () => {
-        console.log("VerifyContactPage unmounted");
-        clearInterval(clearRedirect)
-        // clearInterval(clearResendOTP)
-        }
-    // }, [resendAt]);
-    }, []); */
-   /*  useEffect(() => {
-        const controller = new AbortController();
-
-        async function initialize() {
-            try {
-                console.log("VerifyContactPage mounted");
-
-                if (otpSent) {
-                    const storedNumber = number || functions.temporaryStore({name: "uPhoneNumber"});
-
-                    if (storedNumber) {
-                        setNumber(storedNumber);
-
-                        functions.temporaryStore({ name: "uPhoneNumber" }, 2);
-                    } else {
-                        await defaultValidate(controller);
-                    }
-
-                    return;
-                }
-
-                const storedRedirect = functions.temporaryStore({ name: "redirect" }, 0, true);
-                console.log("Initial process", storedRedirect);
-
-                // if (storedRedirect) setRedirect(storedRedirect);
-
-                if (!storedRedirect?.state){
-                    await defaultValidate(controller);
-                }else{
-                    setRedirect(storedRedirect);
-                    
-                    redirectPage();
-                    const timer = setInterval(redirectPage, 1000);
-                    return () => clearInterval(timer);
-                }
-            } catch (error) {
-                if (error.name !== "AbortError") {
-                    console.error(
-                        "Verification page initialization failed:",
-                        error
-                    );
-                }
-            }
-        }
-
-        initialize();
-
-        return () => {
-            controller.abort();
-        };
-    }, []); */
+    
     useEffect(() => {
 
         // Authentication must finish restoring the session first.
@@ -255,7 +145,7 @@ export default function VerifyContactPage(){
     useEffect(() => {
         if (!data.authReady) return;
         // if (!accessToken) navigate("/", { replace: true });
-        // if (!accessToken) goHome();
+        if (!accessToken) goHome();
     }, [data.authReady, accessToken, navigate]);
 
 
@@ -265,20 +155,6 @@ export default function VerifyContactPage(){
     // --------------------------------------------------------
     // --------------------- FUNCTIONS    ---------------------
     // --------------------------------------------------------
-    
-    /* const updateCountdown = () => {
-      const remaining = Math.ceil((resendAt - Date.now()) / 1000);
-
-      let countDown = Math.max(remaining, 0);
-      if(countDown == 0){
-        // console.log("Countdown is zero, resending OTP is now possible", countDown, isSending);
-        
-        localIsSending = false;
-        setIsSending(localIsSending);
-        setOtp(prev => ({...prev, resent: false}));
-        }
-        setCountdown(countDown);
-    } */
 
     const redirectPage = () => {
         localRedirect = {...localRedirect, in: --localRedirect.in}
@@ -304,59 +180,6 @@ export default function VerifyContactPage(){
 
     // async function defaultValidate(abortController){    
     async function defaultValidate(abortController, isCancelled=()=>false) {
-        /* console.log('Wait, are you the one? ')
-        console.trace("[DEBUG] defaultValidate invoked", {
-            time: new Date().toISOString(),
-            otpSent,
-            resendAt,
-            accessToken
-        }); */
-
-        /* try{
-            const response = await fetch(`${data.API_URL}/auth/get-user`, {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-                signal: abortController.signal,
-            });
-
-            if (!response.ok) {
-                throw new Error(
-                    `User request failed with status ${response.status}`
-                );
-            }
-
-            let storedUser = await response.json();
-            
-            // setNumber(storedUser.user.phone_number);
-            setUser(storedUser.user);
-            console.log("Yes it's us", storedUser)
-            if(storedUser.Success){
-                console.log("User Found: ")
-                if(storedUser.user.phone_number){
-                    console.log("Number available: ")
-                    // setOtp({...otp, resent: true});
-                    localIsSending = true;
-                    setIsSending(localIsSending);
-                    // processRequest(storedUser.user.phone_number, {...otp, resend: true});
-                    await processRequest(storedUser.user.phone_number, {code: "", resend: false});
-                    // setOtpSent(true); // Collect OTP
-                }else{
-                    console.log("Number NOT available: ")
-                    setOtpSent(false); // Still request for the number
-                }
-            }else{
-                console.log("No User found")
-                // goHome();
-            }
-        }catch(error){
-            console.log("Something went wrong! Error: ", error);
-        }finally{
-            setLoading(false)
-            localIsSending = false;
-            setIsSending(localIsSending);
-        } */
         if (!data.authReady || !accessToken) {
             return;
         }
@@ -364,13 +187,20 @@ export default function VerifyContactPage(){
         try {
             setLoading(true);
 
-            const response = await fetch(
+            /* const response = await fetch(
                 `${data.API_URL}/auth/get-user`,
                 {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${accessToken}`
                     },
+                    signal: abortController.signal
+                }
+            ); */
+            const response = await functions.authenticatedFetch(
+                `${data.API_URL}/auth/get-user`,
+                {
+                    method: "GET",
                     signal: abortController.signal
                 }
             );
@@ -433,23 +263,6 @@ export default function VerifyContactPage(){
             }
             setOtp({...otp, resent: false});
             console.log("Sending OTP", number, numberErrors)
-            
-            /* let response = await fetch(`${data.API_URL}/auth/verify-number`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                },
-                // body: JSON.stringify({ process: 'send-otp', number }),
-                body: JSON.stringify({ number, otp }),
-            })
-            const responseData = await response.json()
-            // console.log("Verify Contact: ", responseData)
-            if (responseData.status.complete){
-                navigate("/dashboard");
-            }else{
-                responseData.status.success && setOtpSent(true);
-            } */
            
             localIsSending = true;
             setIsSending(localIsSending);
@@ -468,7 +281,7 @@ export default function VerifyContactPage(){
         // if(otp.code) isSending = true;
         
                 // console.log("Get user data now..", JSON.stringify({ number, paramOtp }), Boolean(accessToken))
-        let response = await fetch(`${data.API_URL}/auth/verify-number`, {
+        /* let response = await fetch(`${data.API_URL}/auth/verify-number`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -476,7 +289,17 @@ export default function VerifyContactPage(){
             },
             // body: JSON.stringify({ process: 'send-otp', number }),
             body: JSON.stringify({ number, otp: paramOtp }),
-        })
+        }) */
+        const response = await functions.authenticatedFetch(
+            `${data.API_URL}/auth/verify-number`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ number, otp: paramOtp }),
+            }
+        );
         const responseData = await response.json()
         // const responseData = {status: {complete: false, otp: {resent: false}, error: {state: false}}, user: {phone_number: '+233558244996'}}
 
@@ -529,27 +352,7 @@ export default function VerifyContactPage(){
             // setIsSending(localIsSending);
             let resendOTP = {...otp, code: "", resend: true};
 
-            /* const response = await fetch('/api/auth/send-otp', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-            })
-            const data = await response.json() */
            await processRequest(number, resendOTP);
-        //    sendRequest && processRequest(number, otp);
-
-            // Start a new 60-second countdown
-            /* setResendAt(Date.now() + baseCountDown * 1000)
-
-            // Restart countdown
-            setCountdown(baseCountDown)
-            resendOTP = {...resendOTP, resend: false};
-            setOtp(resendOTP);
-            // setResendOTPState();
-
-            localIsSending = true;
-            setIsSending(localIsSending); */
         } catch (error) {
             console.error('Resend OTP error:', error)
             setError(error.message)
@@ -559,14 +362,6 @@ export default function VerifyContactPage(){
             setIsSending(localIsSending);
         }
     }
-
-    /* function setResendOTPState(){
-        setResendAt(Date.now() + 60 * 1000)
-
-        // Restart countdown
-        setCountdown(60)
-        setOtp(otp);
-    } */
 
     function goHome(destination=""){
         localRedirect = {...redirect, to: destination || redirect.to, state: true, in: 10};
@@ -582,12 +377,18 @@ export default function VerifyContactPage(){
         try{
             // functions.logout();
 
-            const response = await fetch(`${data.API_URL}/auth/remove-user`, {
+            /* const response = await fetch(`${data.API_URL}/auth/remove-user`, {
             method: 'GET',
             headers: {
                 Authorization: `Bearer ${accessToken}`
             }
-            });
+            }); */
+            const response = await functions.authenticatedFetch(
+                `${data.API_URL}/auth/remove-user`,
+                {
+                    method: "GET",
+                }
+            );
             
             const result = await response.json();
 
@@ -602,72 +403,187 @@ export default function VerifyContactPage(){
 
 
     return (
-        <>
-            <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-white to-slate-100 px-4 py-12">
-                <div className="max-w-md mx-auto">
-                    {alerts[0].length > 0 && alerts[0].map(each => (<p>{each.message}</p>))}
-                    {/* {verified && (<div>Phone Number Verified ✓</div>)} */}
-                    {/* {console.log("Page reload", countdown)} */}
-                    {redirect.state && <p>Sorry, something went wrong. Resetting in {redirect.in} seconds... You can <Link to='/signup'>SignIn</Link> again with the same Email.</p>}
-                    <form className="bg-white rounded-xl p-6 shadow bg-white p-6 rounded-2xl shadow-lg w-full max-w-md" onSubmit={submit}>
-                    {/* <div className="bg-white rounded-xl p-6 shadow bg-white p-6 rounded-2xl shadow-lg w-full max-w-md"> */}
-                    {
-                        !redirect.state && !otpSent && 
-                            <>
-                                <h3 className="text-2xl font-bold">Add a phone number to {user ? [user.full_name, user.email].filter(Boolean).join(", ") || "your account"
-                                : "your account"}</h3>
-                                <PhoneInput international defaultCountry="GH" value={number} onChange={setNumber} className="border p-3 rounded-lg" autoFocus />
-                                {/* <button onClick={submit} className="px-4 py-2 bg-indigo-600 text-white rounded">Verify now</button> */}
-                                <button className="px-4 py-2 bg-indigo-600 text-white rounded">Verify now</button>
-                            </>
-                    }
-                    {
-                        !redirect.state && otpSent &&
-                        // otpSent &&
-                        <>
-                            {otp.resent && <h2>A new OTP code has been resent.</h2>}
-                            <h3 className="text-sm text-gray-500 mt-2">Enter OTP code sent to this number {number}</h3>
-                            <input className="w-full border rounded-lg px-4 py-3 mt-6" type="text" maxLength={6} inputMode="numeric" value={otp.code} onChange={(e) => setOtp({...otp, code: e.target.value})} placeholder="Enter 6-digit OTP" autoFocus />
-                            {/* {otp.enter && otp.code && <button onClick={submit} className="w-full mt-4 bg-primary text-black py-3 rounded-lg">Verify OTP</button>} */}
-                            {otp.enter && otp.code && <button className="w-full mt-4 bg-primary text-black py-3 rounded-lg">Verify OTP</button>}
-                            <div  className="text-center mt-5">
-                                {countdown > 0 ? (
-                                    <p className="text-sm text-gray-500">
-                                        You can resend the OTP in{' '}
-                                        <span className="font-semibold">
-                                        {countdown}s
-                                        </span>
-                                    </p>
-                                    ) : (
-                                    <button
-                                        type="button"
-                                        onClick={handleResendOtp}
-                                        // onClick={() => handleResendOtp(true)}
-                                        disabled={isSending}
-                                        className="text-primary font-semibold"
-                                    >
-                                        {isSending ? 'Sending...' : 'Resend OTP'}
-                                    </button>
-                                    )
-                                }
-                            </div>
-                            {error && (
-                                <p className="text-sm text-red-500 text-center mt-3">
-                                {error}
-                                </p>
-                            )}
-                            <button
-                                type="button"
-                                onClick={handleUserRollback}
+        <main className="flex min-h-screen items-center justify-center bg-[#f3f8fd] px-4 py-8 sm:px-6 sm:py-12">
+            <div className="w-full max-w-lg">
+                {alerts[0].length > 0 && (
+                    <div className="mb-4 space-y-2" role="alert">
+                        {alerts[0].map((each, index) => (
+                            <p
+                                key={each.number ?? index}
+                                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
                             >
-                                Cancel
-                            </button>
-                        </>
-                    }
-                    </form>
-                    {/* </div> */}
-                </div>
-            </main>
-        </>
-    )
+                                {each.message}
+                            </p>
+                        ))}
+                    </div>
+                )}
+
+                {redirect.state && (
+                    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                        Sorry, something went wrong. Resetting in {redirect.in} seconds. You can{' '}
+                        <Link to="/signup" className="font-semibold underline">
+                            sign in
+                        </Link>{' '}
+                        again with the same email.
+                    </div>
+                )}
+
+                <section className="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm">
+                    <header className="bg-[#0b4f8a] px-5 py-6 text-white sm:px-8 sm:py-8">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100">
+                            Account security
+                        </p>
+
+                        <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                            {otpSent ? 'Verify your phone' : 'Add your phone number'}
+                        </h1>
+
+                        <p className="mt-2 text-sm leading-6 text-blue-100">
+                            {otpSent
+                                ? 'Enter the one-time code sent to your phone to complete verification.'
+                                : 'Add a phone number to your account so we can verify it securely.'}
+                        </p>
+                    </header>
+
+                    <div className="p-5 sm:p-8">
+                        {loading && !otpSent ? (
+                            <p className="mb-5 text-sm text-slate-500">
+                                Loading your account…
+                            </p>
+                        ) : null}
+
+                        {!redirect.state && !otpSent && (
+                            <form onSubmit={submit} className="space-y-5">
+                                <div>
+                                    <label
+                                        htmlFor="verify-phone"
+                                        className="mb-2 block text-sm font-medium text-slate-700"
+                                    >
+                                        Phone number
+                                    </label>
+
+                                    <PhoneInput
+                                        id="verify-phone"
+                                        international
+                                        defaultCountry="GH"
+                                        value={number}
+                                        onChange={setNumber}
+                                        autoFocus
+                                        className="phone-input w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100"
+                                    />
+
+                                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                                        Include your country code so we can send the verification code.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="inline-flex w-full items-center justify-center rounded-xl bg-[#0b4f8a] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#083f70] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {loading ? 'Please wait…' : 'Send verification code'}
+                                </button>
+                            </form>
+                        )}
+
+                        {!redirect.state && otpSent && (
+                            <form onSubmit={submit} className="space-y-5">
+                                {otp.resent && (
+                                    <p className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                                        A new verification code has been sent.
+                                    </p>
+                                )}
+
+                                <div>
+                                    <p className="text-sm text-slate-600">
+                                        Enter the 6-digit code sent to
+                                    </p>
+                                    <p className="mt-1 break-words font-semibold text-slate-900">
+                                        {number}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label
+                                        htmlFor="verify-otp"
+                                        className="mb-2 block text-sm font-medium text-slate-700"
+                                    >
+                                        Verification code
+                                    </label>
+
+                                    <input
+                                        id="verify-otp"
+                                        type="text"
+                                        inputMode="numeric"
+                                        autoComplete="one-time-code"
+                                        maxLength={6}
+                                        value={otp.code}
+                                        onChange={(e) =>
+                                            setOtp((prev) => ({
+                                                ...prev,
+                                                code: e.target.value.replace(/\D/g, '').slice(0, 6),
+                                            }))
+                                        }
+                                        placeholder="Enter 6-digit code"
+                                        autoFocus
+                                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-center text-lg tracking-[0.35em] outline-none transition placeholder:tracking-normal focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                    />
+                                </div>
+
+                                {error && (
+                                    <p
+                                        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                                        role="alert"
+                                    >
+                                        {error}
+                                    </p>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={!otp.enter || otp.code.length !== 6 || loading}
+                                    className="w-full rounded-xl bg-[#0b4f8a] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#083f70] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {loading ? 'Verifying…' : 'Verify phone number'}
+                                </button>
+
+                                <div className="text-center">
+                                    {countdown > 0 ? (
+                                        <p className="text-sm text-slate-500">
+                                            You can request another code in{' '}
+                                            <span className="font-semibold text-slate-700">
+                                                {countdown}s
+                                            </span>
+                                        </p>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={handleResendOtp}
+                                            disabled={isSending}
+                                            className="text-sm font-semibold text-blue-700 underline-offset-4 hover:underline disabled:opacity-50"
+                                        >
+                                            {isSending ? 'Sending code…' : 'Resend code'}
+                                        </button>
+                                    )}
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handleUserRollback}
+                                    className="w-full rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
+                                >
+                                    Cancel verification
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </section>
+
+                <p className="mt-5 text-center text-xs leading-5 text-slate-500">
+                    Your phone number is used for account verification.
+                </p>
+            </div>
+        </main>
+    );
 }

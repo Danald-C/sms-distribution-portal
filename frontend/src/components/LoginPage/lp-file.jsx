@@ -34,10 +34,10 @@ if (!password) {
 try {
   setLoading(true);
 
-  console.log(JSON.stringify({
+  /* console.log(JSON.stringify({
       email: email.trim().toLowerCase(),
       password
-    }))
+    })) */
   const response = await fetch(`${data.API_URL}/auth/login`, {
     method: "POST",
     credentials: "include",
@@ -58,7 +58,8 @@ try {
     );
   }
 
-  const authenticated = functions.processLL(result);
+  // const authenticated = functions.processLL(result);
+  const authenticated = await functions.processLL(result);
 
   if (!authenticated) {
     throw new Error("Sign-in succeeded, but the access token was missing.");
