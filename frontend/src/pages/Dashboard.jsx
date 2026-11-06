@@ -248,7 +248,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="w-full px-4 py-5 sm:px-6 sm:py-7 md:px-8 lg:px-9 lg:py-8 xl:px-10 2xl:px-12 2xl:py-10">
+            <div className="w-full px-4 pt-5 pb-32 sm:px-6 sm:pt-7 sm:pb-32 md:px-8 lg:px-9 lg:pt-8 lg:pb-8 xl:px-10 2xl:px-12 2xl:pt-10 2xl:pb-10">
               {/* Page heading */}
               <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between 2xl:mb-9">
                 <div>

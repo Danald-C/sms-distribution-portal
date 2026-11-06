@@ -526,7 +526,7 @@ export default function GetContacts(){
                 value={number}
                 onChange={setNumber}
                 className="contact-phone-input w-full"
-                autoFocus={true}
+                // autoFocus={true}
               />
             </div>
             <div className="min-w-0">
