@@ -1,13 +1,14 @@
 exports.up = (pgm) => {
-  pgm.addColumn("phone_otp", {
-    type: {
-      type: "varchar(50)",
-      notNull: true,
-      default: "phone_verification",
-    },
-  });
+  pgm.sql(`
+    ALTER TABLE public.phone_otp
+    ADD COLUMN type VARCHAR(50)
+    NOT NULL DEFAULT 'phone_verification';
+  `);
 };
 
 exports.down = (pgm) => {
-  pgm.dropColumn("phone_otp", "type");
+  pgm.sql(`
+    ALTER TABLE public.phone_otp
+    DROP COLUMN IF EXISTS type;
+  `);
 };

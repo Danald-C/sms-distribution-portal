@@ -2,8 +2,6 @@
 -- PostgreSQL database dump
 --
 
--- \restrict Oxcw6bWoqjbREAHcMOyTgJZU0tyyGkA9Q9bZNsKxDAfh1uY313WXtmKUCvfk7XS
-
 -- Dumped from database version 15.15 (Debian 15.15-1.pgdg13+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg13+1)
 
@@ -489,6 +487,4 @@ ALTER TABLE ONLY public.sms_jobs
 --
 -- PostgreSQL database dump complete
 --
-
--- \unrestrict Oxcw6bWoqjbREAHcMOyTgJZU0tyyGkA9Q9bZNsKxDAfh1uY313WXtmKUCvfk7XS
 
