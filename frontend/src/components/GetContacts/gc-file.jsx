@@ -44,7 +44,7 @@ export default function GetContacts(){
 // console.log("Just get the Index: ", ["Mango", "Banana", "Orange"].findIndex(each => each == "Orange"));
 // console.log("Just get the Index: ", ["Mango", "Banana", "Orange", "Watermelon", "Apple"].slice(2));
 
-  useEffect(() => {
+  /* useEffect(() => {
       if (!data.authReady) return;
 
       // Never call a protected endpoint with a missing token.
@@ -53,12 +53,56 @@ export default function GetContacts(){
         return;
       }
       setLoading(false);
+      // functions.dataReload(data.accessToken);
       // console.log('Check for phone numbers: ', data.phoneNumbersData)
 
       
       setContacts({...contacts, existing_numbers: data.phoneNumbersData.phone_numbers.data, all_numbers: data.phoneNumbersData.phone_numbers.data, groupAssociations: data.phoneNumbersData.phoneNumGrpAssociations.data})
       // settingData();
-  }, [data.authReady, accessToken]);
+  }, [data.authReady, accessToken]); */
+  useEffect(() => {
+    if (!data.authReady) return;
+
+    if (!accessToken) {
+        console.warn("[VERIFY] No access token available. Skipping user request.");
+        return;
+    }
+
+    const phoneData = data.phoneNumbersData;
+
+    if (!phoneData) return;
+
+    const allNumbers = phoneData.phone_numbers?.data || [];
+    const groupAssociations = phoneData.phoneNumGrpAssociations?.data || [];
+
+    // Respect the currently selected group.
+    let existingNumbers = allNumbers;
+
+    if (toGroup.activeGroup.id !== "all") {
+        const selectedGroupContacts = groupAssociations
+            .filter(each => each.group_id === toGroup.activeGroup.id)
+            .map(each => allNumbers.find(contact =>
+                contact.id === each.phone_number_id
+            ))
+            .filter(Boolean);
+
+        existingNumbers = selectedGroupContacts;
+    }
+
+    setContacts(previous => ({
+        ...previous,
+        existing_numbers: existingNumbers,
+        all_numbers: allNumbers,
+        groupAssociations
+    }));
+
+    setLoading(false);
+  }, [
+      data.authReady,
+      accessToken,
+      data.phoneNumbersData,
+      toGroup.activeGroup.id
+  ]);
 
     
     /* async function settingData(){
@@ -180,7 +224,7 @@ export default function GetContacts(){
                   headers: {
                       "Content-Type": "application/json",
                   },
-                  body: JSON.stringify(bodyData),
+                  body: JSON.stringify(contact),
               }
           );
           const responseData = await response.json();

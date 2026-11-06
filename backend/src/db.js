@@ -436,5 +436,8 @@ CREATE TABLE contacts (
     created_at TIMESTAMP DEFAULT NOW()
 ); */
 
+
+// DROP SCHEMA public CASCADE;
+// CREATE SCHEMA public;
       
 module.exports = {envDefs, pool, dbObj, functions: { dbQuery, testDatabaseConnection, tableCreateRow, tableGetRows, removeUser, tableUpdateRow, getUsers }}

@@ -44,19 +44,13 @@ export default function VerifyContactPage(){
         // Authentication must finish restoring the session first.
         let clearRedirect = null;
         if (!data.authReady) {
-            /* if(!redirect.state && !localRedirect.state){
-                localRedirect = {...localRedirect, in: 10, to: "/signup"}
-                redirectPage();
-                clearRedirect = setInterval(redirectPage, 1000);
-                localRedirect = {...localRedirect, id: clearRedirect};
-            } */
         //    console.log("[VERIFY] Initializing verification page.", redirect, localRedirect, functions.temporaryStore({ name: "redirect" }));
             if(!redirect.state && !localRedirect.state && functions.temporaryStore({ name: "redirect" }, 0, true) && functions.temporaryStore({ name: "redirect" }, 0, true).state){
                 localRedirect = functions.temporaryStore({ name: "redirect" }, 0, true);
                 // setRedirect(localRedirect);
                 redirectPage();
-                clearRedirect = setInterval(redirectPage, 1000);
-                localRedirect = {...localRedirect, id: clearRedirect}
+                // clearRedirect = setInterval(redirectPage, 1000);
+                // localRedirect = {...localRedirect, id: clearRedirect}
                 }
 
                     // clearInterval(timer);
@@ -157,16 +151,16 @@ export default function VerifyContactPage(){
     // --------------------------------------------------------
 
     const redirectPage = () => {
-        localRedirect = {...localRedirect, in: --localRedirect.in}
+        /* localRedirect = {...localRedirect, in: --localRedirect.in}
         // setRedirect(prev => ({...prev, in: redirect.in-1}));
-        setRedirect(localRedirect);
+        setRedirect(localRedirect); */
         // console.log("Redirect taking place..", redirect, localRedirect);
         
         // let newAlerts = functions.processError(localAlerts, {number: 1, type: "caution", message: `Sorry, something went wrong. Resetting in ${localRedirect.in} seconds... You can `+<Link to='/signup'>SignIn</Link>+` again with the same Email.`}, 1);
     
     // setRedirect(prev => {({...prev, in: prev.in - 1})});
-        if(localRedirect.in <= 0){
-            console.log("Redirect has reset..");
+        // if(localRedirect.in <= 0){
+            // console.log("Redirect has reset..");
             functions.temporaryStore({name: "redirect"}, 2);
             // functions.temporaryStore({name: "token"}, 2);
             functions.logout();
@@ -175,7 +169,7 @@ export default function VerifyContactPage(){
             localRedirect = {...localRedirect, state: false, id: 0, to: "/", in: 0};
             setRedirect(localRedirect);
             navigate(to)
-        }
+        // }
     }
 
     // async function defaultValidate(abortController){    

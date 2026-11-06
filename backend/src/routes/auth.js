@@ -998,6 +998,7 @@ router.post('/sms-default', authMiddleware, async (req, res) => {
       thisUser = await db.functions.tableUpdateRow("users", {id: req.user.id, sender: req.body.sender, message: req.body.message });
     }
 
+    // res.json({ Success: true, smsDefault: {sender: thisUser.sender, message: thisUser.message}});
     res.json({ Success: true, smsDefault: {sender: thisUser.sender, message: thisUser.message}});
   }catch(error){
     res.json( {error: 'Unfortunately, this process failed. '+ error} );

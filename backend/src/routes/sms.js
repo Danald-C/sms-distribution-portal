@@ -6,7 +6,8 @@ const router = express.Router()
 const csvParse = require('csv-parse');
 
 const db = require("../db.js"); // your DB connection
-const Middlewares = require('../middleware/authMiddleware');
+// const Middlewares = require('../middleware/authMiddleware');
+const {authMiddleware, emailTransporter} = require('../middleware/authMiddleware');
 const { connectionRedis } = require('../lib/redisClient');
 const { requestSendMail } = require('../lib/email.js');
 // const { processWorker } = require('../worker/sms-worker');
@@ -87,14 +88,14 @@ axios(config)
 }); */
 //*******  */
 
-// router.post('/send', Middlewares.verifyJWTMiddleware, async (req, res) => {
-router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddleware, async (req, res) => {
+// router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddleware, async (req, res) => {
+router.post('/send', emailTransporter, authMiddleware, async (req, res) => {
   try{
     /* const { sender, to, message } = req.body;
     await enqueueSms({ sender, to, message });
     await processWorker(); */ // start the worker to process SMS jobs
     
-    let thisUser = await db.functions.tableGetRows("users", { id: req.user.user_id }), unit_1 = Number(thisUser.data[0].unit_1), unit_2 = Number(thisUser.data[0].unit_2), totalReceipients = 0;
+    let findUser = await db.functions.tableGetRows("users", { id: req.user.id }), thisUser = findUser.data[0], unit_1 = Number(thisUser.unit_1), unit_2 = Number(thisUser.unit_2), totalReceipients = 0;
     // req.body.payload.map(each => Math.max(1, Math.ceil(each.message.length / 160))).reduce((acc, val) => acc + val, 0);
 
     req.body.payload.map(each => totalReceipients += each.to.length);
@@ -108,7 +109,7 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
         unit_1 -= totalReceipients; // Subtract total recipients from available units
         totalReceipients = 0 // Reset total recipients to 0 since all have been sent
       }
-      await db.functions.tableUpdateRow("users", {id: req.user.user_id, unit_1 });
+      await db.functions.tableUpdateRow("users", {id: req.user.id, unit_1 });
     }
 
     // if(totalReceipients > 0 && unit_2 != 0){
@@ -121,8 +122,9 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
         totalReceipients -= unit_2;
         unit_2 = 0;
       }
-      await db.functions.tableUpdateRow("users", {id: req.user.user_id, unit_2 });
+      await db.functions.tableUpdateRow("users", {id: req.user.id, unit_2 });
     }
+    findUser = await db.functions.tableGetRows("users", { id: req.user.id }), thisUser = findUser.data[0];
 
   let filteredPayload = [], unsentPayloads = [];
   if(totalReceipients > 0){
@@ -162,7 +164,7 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
 
     if(filteredPayload.length > 0){
       // Write History here...
-      await db.functions.tableCreateRow('activity_history', { user_id: thisUser.data[0].id, type: "SMS", description: `${filteredPayload.length} sms was sent.`, created_at: new Date() });
+      await db.functions.tableCreateRow('activity_history', { user_id: thisUser.id, type: "SMS", description: `${filteredPayload.length} sms was sent.`, created_at: new Date() });
       /* await req.transporter.sendMail({
         from: process.env.EMAIL_ADDRESS,
         to: process.env.EMAIL_ADDRESS,
@@ -184,16 +186,20 @@ router.post('/send', Middlewares.emailTransporter, Middlewares.verifyJWTMiddlewa
         text: ``,
         html: `<h2>SMS was sent.</h2>
 
-            <p><b>Name:</b> ${thisUser.data[0].full_name}</p>
-            <p><b>Email:</b> ${thisUser.data[0].email}</p>
-            <p><b>Phone:</b> ${thisUser.data[0].phone_number}</p>
+            <p><b>Name:</b> ${thisUser.full_name}</p>
+            <p><b>Email:</b> ${thisUser.email}</p>
+            <p><b>Phone:</b> ${thisUser.phone_number}</p>
 
             <p>The user with the above details sent <b>${filteredPayload.length}</b> sms on this date ${new Date()}.</p>` 
       });
     }
     
     // res.json({ Status: 'queued', totalRecipients: req.body.payload.reduce((acc, each) => acc + each.to.length, 0), unsentPayloads });
-    res.json({ Success: true, Status: 'queued', unsentPayloads });
+    res.json({ Success: true, Status: 'queued', unsentPayloads,
+        user_info: {
+          unit_1: thisUser.unit_1,
+          unit_2: thisUser.unit_2
+        }});
   }catch(err){
     console.error('Error in /send route:', err);
     return res.status(500).json({ Success: false, error: 'Server error' });

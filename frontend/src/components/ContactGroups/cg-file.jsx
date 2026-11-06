@@ -20,6 +20,7 @@ export default function ContactGrouping(){
     async function settingData(){
         try{
         // console.log('Wait, are you the one? ')
+            // functions.dataReload(data.accessToken);
             if(data.phoneNumbersData.phone_number_groups) setPhone_number_groups(data.phoneNumbersData.phone_number_groups)
         }catch(error){
             //
@@ -43,9 +44,18 @@ export default function ContactGrouping(){
             // const responseData = await ContactGroupRequest(0, Object.keys(selected).length > 0 ? "update" : "create");
             const responseData = await ContactGroupRequest(Object.keys(selected).length > 0 ? selected.id : 0, Object.keys(selected).length > 0 ? "update" : "create");
 
-                // console.log("From Submit.", selected, responseData.phone_number_groups);
-            if(responseData.success){
+                console.log("From Submit.", selected, responseData.phone_number_groups);
+            /* if(responseData.success){
                 setPhone_number_groups(responseData.phone_number_groups);
+                // functions.setPhoneNumbersData({...phoneNumbersData, phone_number_groups: responseData.phone_number_groups});
+            } */
+           if (responseData.success) {
+                setPhone_number_groups(responseData.phone_number_groups);
+
+                functions.setPhoneNumbersData(previousData => ({
+                    ...previousData,
+                    phone_number_groups: responseData.phone_number_groups
+                }));
             }
             // setClear(true);
             // setAlerts([]);
@@ -89,8 +99,16 @@ export default function ContactGrouping(){
                 const responseData = await response.json();
                 
                 console.log("And finally, loading is set to false.", [id, action], responseData);
-                if(responseData.success){
+                /* if(responseData.success){
                     setPhone_number_groups(responseData.phone_number_groups)
+                } */
+                if (responseData.success) {
+                    setPhone_number_groups(responseData.phone_number_groups);
+
+                    functions.setPhoneNumbersData(previousData => ({
+                        ...previousData,
+                        phone_number_groups: responseData.phone_number_groups
+                    }));
                 }
                 // setClear(true);
                 setAlerts([]);
@@ -113,12 +131,12 @@ export default function ContactGrouping(){
             setSelected({});
             setName('')
             setDescription('')
-            setClear(true);
+            // setClear(true);
         }else{
             setName(thisData.group_name)
             setDescription(thisData.group_description || "")
             setSelected(thisData);
-            setClear(false);
+            // setClear(false);
         }
     }
 
