@@ -41,8 +41,25 @@ async function startServer() {
     // ...
     // app.listen(PORT, () => console.log(...));
 
-app.use(cors({
+/* app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+})); */
+const allowedOrigins = [
+  'https://dcsmsportal.com',
+  'https://www.dcsmsportal.com',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked origin: ${origin}`));
+    }
+  },
   credentials: true
 }));
 app.use(cookieParser())
