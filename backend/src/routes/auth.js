@@ -134,7 +134,7 @@ router.post('/register-google', async (req, res) => {
       profile_picture: oAuth_res.user.picture
     }, 1);
 
-    if(authentication.newUser){
+    if(authentication.newUser.new){
       await db.functions.tableUpdateRow("public.users", { id: authentication.user.id, email_verified: true, updated_at: new Date() });
       welcomeUserSetup(authentication.user);
     }
