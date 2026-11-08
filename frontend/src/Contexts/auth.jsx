@@ -98,8 +98,6 @@ function AuthProvider({ children }) {
   const [authReady, setAuthReady] = useState(false);
   const authOperationRef = useRef(0);
 
-  // let isCurrentOperation = null;
-
   useEffect(() => {
     let cancelled = false;
     // console.log('[AUTH] Session restoration effect started', {
@@ -176,7 +174,6 @@ function AuthProvider({ children }) {
             setAccessToken(newToken);
             setUser(profileData.user || null);
             setPhoneNumbersData(profileData.allData || []);
-            // dataReload(newToken);
 
         } catch (error) {
             if (!isCurrentOperation()) return;
@@ -264,54 +261,8 @@ function AuthProvider({ children }) {
     return sendRequest(newToken);
   }
 
-  /* async function dataReload(newToken){
-    const response = await authenticatedFetch(
-        `${API_URL}/auth/reload-data`,
-        {
-            method: "GET",
-        }
-    );
-
-    if (!isCurrentOperation()) return;
-
-    if (!response.ok) {
-        throw new Error(
-            `Profile request failed: HTTP ${response.status}`
-        );
-    }
-
-    const profileData = await response.json();
-
-    if (!profileData.Success) {
-        throw new Error('Unable to load the user profile.');
-    }
-
-    // Check again before committing the authenticated state.
-    if (!isCurrentOperation()) return;
-
-    setAccessToken(newToken);
-    setUser(profileData.user || null);
-    setPhoneNumbersData(profileData.allData || []);
-  } */
 
 
-
-  /* function processGL(data) { // Google Login
-    // setGateway('google');
-    // localStorage.setItem('token', JSON.stringify(data.token))
-
-    // localStorage.setItem('token', data.token)
-    let token = temporaryStore({name: "token", value: data.token}, 1);
-
-    // localStorage.setItem('user', JSON.stringify(data.user))
-    // setAccessToken(JSON.parse(localStorage.getItem('token')));
-
-    // setAccessToken(localStorage.getItem('token'));
-    setAccessToken(token);
-    
-    setUser(data.user);
-    setPhoneNumbersData(data.allData);
-  } */
   /* function processLL(data) {
     const tokenValue = data?.token || data?.accessToken;
 
@@ -390,7 +341,7 @@ function AuthProvider({ children }) {
     return true;
   }
 
-  function processGL(data) {
+  /* function processGL(data) {
     const tokenValue = data?.accessToken || data?.token;
 
     if (!tokenValue) {
@@ -411,7 +362,61 @@ function AuthProvider({ children }) {
     setAuthReady(true);
 
     return true;
-  }
+  } */
+ async function processGL(data) {
+    const tokenValue = data?.accessToken || data?.token;
+
+    if (!tokenValue) {
+      console.error("Google login response did not contain an access token.");
+      return false;
+    }
+
+    // Invalidate any session-restoration request already in progress.
+    const operationId = ++authOperationRef.current;
+
+    temporaryStore({ name: "token", value: tokenValue }, 1);
+
+    // Establish the login immediately using the response data.
+    setAccessToken(tokenValue);
+    setUser(data.user || null);
+    setPhoneNumbersData(data.allData || []);
+    setLoading(true);
+    setAuthReady(true);
+
+    try {
+      const response = await fetch(`${API_URL}/auth/reload-data`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${tokenValue}`,
+        },
+      });
+
+      const profileData = await response.json();
+
+      // Ignore this response if another auth operation happened meanwhile.
+      if (authOperationRef.current !== operationId) {
+        return true;
+      }
+
+      if (!response.ok || !profileData.Success) {
+        throw new Error(
+          `Profile request failed: HTTP ${response.status}`
+        );
+      }
+
+      setUser(profileData.user || data.user || null);
+      setPhoneNumbersData(profileData.allData || []);
+    } catch (error) {
+      // Login itself succeeded; keep the login response's user/data as fallback.
+      console.error("[AUTH] Could not reload profile after Google login:", error);
+    } finally {
+      if (authOperationRef.current === operationId) {
+        setLoading(false);
+      }
+    }
+
+    return true;
+ }
 
   /* async function logout() {
     // await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
