@@ -70,7 +70,7 @@ export default function GetContacts(){
 
     const phoneData = data.phoneNumbersData;
 
-    if (!phoneData) return;
+    /* if (!phoneData) return;
 
     const allNumbers = phoneData.phone_numbers?.data || [];
     const groupAssociations = phoneData.phoneNumGrpAssociations?.data || [];
@@ -94,7 +94,7 @@ export default function GetContacts(){
         existing_numbers: existingNumbers,
         all_numbers: allNumbers,
         groupAssociations
-    }));
+    })); */
 
     setLoading(false);
   }, [
@@ -208,8 +208,7 @@ export default function GetContacts(){
             selectedIS.multi[1][mode] = setContactsOS.new_numbers[0];
             if(selectedIS.multi[1][mode].length > 0) setAlerts([{from: 2, type: "caution", message: "Numbers taken already cannot be taken again."}, ...alerts]);
           }
-          console.log("Numbers taken already cannot be taken again.", JSON.stringify(contact));
-          // const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
+          // console.log("Numbers taken already cannot be taken again.", JSON.stringify(contact));
           /* const response = await fetch(`${data.API_URL}/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
               method: 'POST',
               headers: {
@@ -259,9 +258,8 @@ export default function GetContacts(){
     }
     // let new_numbers = setContactsOS.new_numbers[0].length > 0 ? setContactsOS.new_numbers : [[], 1];
     setContactsOS = {...setContactsOS, new_numbers: setContactsOS.new_numbers, all_numbers: setContactsOS.all_numbers, existing_numbers: setContactsOS.existing_numbers};
-    // setContactsOS = {...setContactsOS, new_numbers, all_numbers: setContactsOS.all_numbers, existing_numbers: setContactsOS.existing_numbers};
     setContacts(setContactsOS);
-    console.log("New numbers: ", setContactsOS);
+    // console.log("New numbers: ", setContactsOS);
     // processNumberGroup(toGroup.activeGroup);
     selectedOS = {...selectedOS, multi: [[false, false], [[], []]]};
     setSelectedIS(selectedOS);
@@ -349,7 +347,6 @@ export default function GetContacts(){
         try{
           setLoading(true)
           
-          // const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
           /* const response = await fetch(`${data.API_URL}/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
               method: 'POST',
               headers: {
@@ -411,16 +408,15 @@ export default function GetContacts(){
     setToGroup(thisToGroup);
   }
 
-  // function processNumberGroup(group, thisToGroup={}, setAddToGrp=false){
   function processNumberGroup(group, setAddToGrp=false){
     // let useThisToGroup = Object.keys(thisToGroup).length > 0 ? thisToGroup : toGroup, useThisSelectedIS = selectedIS, useThisContacts = setContactsOS;
     let thisToGroup = toGroup, useThisSelectedIS = selectedIS, useThisContacts = setContactsOS;
               // console.log("Set it here...", setAddToGrp, group, useThisContacts);
-    if(setAddToGrp){
+    if(setAddToGrp){ // Selected group to add new contacts
       thisToGroup = {...thisToGroup, addToGroup: group};
       // setToGroup(thisToGroup);
     }else{
-     getGroupNumbers(group, useThisContacts);
+     getGroupNumbers(group, setContactsOS);
 
       // useThisContacts = {...useThisContacts, existing_numbers: useThisContacts.existing_numbers};
         // setContacts(useThisContacts);
@@ -436,22 +432,23 @@ export default function GetContacts(){
     }
     setToGroup(thisToGroup);
 
-    return {toGroup: thisToGroup, selectedIS: useThisSelectedIS, contacts: useThisContacts};
+    // return {toGroup: thisToGroup, selectedIS: useThisSelectedIS, contacts: setContactsOS};
   }
 
-  function getGroupNumbers(group, contacts){
+  function getGroupNumbers(group, contactsOS){
+    // console.log("All numbers before: ", [contacts, contactsOS]);
     if(group.id == 'all'){
-        contacts.existing_numbers = contacts.all_numbers;
-      }else{
-        let sel_grp = contacts.groupAssociations.filter(each => each.group_id == group.id), getContacts = [];
-        sel_grp.map(each_1 => {
-          if(contacts.all_numbers.some(each_2 => each_1.phone_number_id == each_2.id)) getContacts.push(contacts.all_numbers.find(each_2 => each_1.phone_number_id == each_2.id));
-        });
-        contacts.existing_numbers = getContacts;
-      }
-      setContacts(contacts);
+      contactsOS.existing_numbers = contactsOS.all_numbers;
+    }else{
+      let sel_grp = contactsOS.groupAssociations.filter(each => each.group_id == group.id), getContacts = [];
+      sel_grp.map(each_1 => {
+        if(contactsOS.all_numbers.some(each_2 => each_1.phone_number_id == each_2.id)) getContacts.push(contactsOS.all_numbers.find(each_2 => each_1.phone_number_id == each_2.id));
+      });
+      contactsOS.existing_numbers = getContacts;
+    }
+    setContacts(contactsOS);
 
-      // return contacts;
+    // return contacts;
   }
 
   function processCheckAll(checked, mode){
@@ -469,8 +466,8 @@ export default function GetContacts(){
 
     // if(on == "active-group" || on == "save-numbers" || on == "update-contact" || on == "remove-contact"){
     if(triggers[0].some(each => each == on)){
+      console.log("On prep...", contacts);
       setContactsOS = contacts;
-    // console.log("On prep...", setContactsOS, param);
       // if(on == "active-group") processNumberGroup(param);
       if(on == "active-group" || on == "add-group") processNumberGroup(param.group, param.setAddToGrp || false);
       if(on == "save-numbers") saveContacts(param.newNums, param.mode);
@@ -525,7 +522,7 @@ export default function GetContacts(){
                 defaultCountry="GH"
                 value={number}
                 onChange={setNumber}
-                className="contact-phone-input w-full"
+                className="contact-phone-input w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
                 // autoFocus={true}
               />
             </div>
