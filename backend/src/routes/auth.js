@@ -577,13 +577,13 @@ router.post('/forgot-password-number', async (req, res) => {
       await db.functions.removeUser('public.phone_otp', { user_id: thisUser.id, type: 'password_reset' });
       await db.functions.tableCreateRow('phone_otp', { user_id: thisUser.id, otp: newOTP, type: "password_reset", expires_at: expiresAt });
 
-      console.log(`New OTP sent ${newOTP}`);
+      // console.log(`New OTP sent ${newOTP}`);
     }else{ // Receiving
       if(otp){ // User entered otp
         console.log(`User submitted OTP ${otp}`);
         
         if(new Date(thisOtp.expires_at).getTime() > new Date().getTime()){ // Otp has not expired
-          console.log("OTP has not expired");
+          // console.log("OTP has not expired");
           
           if(thisOtp.otp == otp){ // Otp is correct
             console.log("OTP is valid");
@@ -591,25 +591,25 @@ router.post('/forgot-password-number', async (req, res) => {
 
             complete = true;
           }else{ // Otp is not correct
-            console.log("OTP is NOT valid");
+            // console.log("OTP is NOT valid");
             return res.status(503).json({error: 'Your otp does not match or not found. Enter correct otp.'});
           }
         }else{ // Expired so resend
-          console.log(`OTP has expired. New one resent ${newOTP}`);
+          // console.log(`OTP has expired. New one resent ${newOTP}`);
           
           await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
           await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
         }
       }else{ // User did not enter otp
-        console.log("User did not submit OTP");
+        // console.log("User did not submit OTP");
         
         if(new Date(thisOtp.expires_at).getTime() < new Date().getTime() || req.body.otp.resend){ // Has the existing expired? Resend.
-          console.log(`Current OTP has expired. New one resent ${newOTP}`);
+          // console.log(`Current OTP has expired. New one resent ${newOTP}`);
           
           await db.functions.tableUpdateRow("phone_otp", {user_id: thisUser.id, otp, type: "password_reset", expires_at: expiresAt });
           await preSMS_Send({ to: [thisUser.phone_number], message: otpMessage }, otpMessFrom);
         }else{
-          console.log("Current OTP has NOT expired. Waiting for user submission");
+          // console.log("Current OTP has NOT expired. Waiting for user submission");
           return res.status(503).json({error: 'You must enter the otp sent to you.'});
         }
       }

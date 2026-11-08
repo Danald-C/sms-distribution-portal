@@ -466,7 +466,7 @@ export default function GetContacts(){
 
     // if(on == "active-group" || on == "save-numbers" || on == "update-contact" || on == "remove-contact"){
     if(triggers[0].some(each => each == on)){
-      console.log("On prep...", contacts);
+      // console.log("On prep...", contacts);
       setContactsOS = contacts;
       // if(on == "active-group") processNumberGroup(param);
       if(on == "active-group" || on == "add-group") processNumberGroup(param.group, param.setAddToGrp || false);
