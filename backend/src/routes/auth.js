@@ -1010,6 +1010,17 @@ router.post('/sms-default', authMiddleware, async (req, res) => {
 router.post('/refresh', async (req, res) => {
   try {
     const cookieValue = req.cookies?.[REFRESH_COOKIE_NAME];
+    console.log('[MOBILE AUTH DIAGNOSTICS]', {
+        origin: req.get('origin'),
+        host: req.get('host'),
+        userAgent: req.get('user-agent'),
+        hasRefreshCookie: Boolean(cookieValue),
+        cookieNames: Object.keys(req.cookies || {})
+    });
+    
+    console.warn('[REFRESH REJECTED]', {
+        reason: 'REFRESH_COOKIE_MISSING'
+    });
 
     // console.log('[AUTH REFRESH DEBUG] Cookie value:', cookieValue);
     if (!cookieValue) {
@@ -1021,6 +1032,10 @@ router.post('/refresh', async (req, res) => {
     }
 
     const separator = cookieValue.indexOf('.');
+
+    console.warn('[REFRESH REJECTED]', {
+        reason: 'INVALID REFRESH COOKIE FORMAT'
+    });
 
     if (separator <= 0 || separator === cookieValue.length - 1) {
       clearRefreshCookie(res);
@@ -1035,6 +1050,10 @@ router.post('/refresh', async (req, res) => {
 
     const row = await tokenStore.getRefreshRowByTokenId(tokenId);
 
+    console.warn('[REFRESH REJECTED]', {
+        reason: 'UNAVAILABLE REFRESH TOKEN RECORD'
+    });
+
     if (!row) {
       clearRefreshCookie(res);
 
@@ -1043,6 +1062,10 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
+    console.warn('[REFRESH REJECTED]', {
+        reason: 'REFRESH_COOKIE_TOKEN_REVOKED'
+    });
+
     if (row.revoked) {
       clearRefreshCookie(res);
 
@@ -1050,6 +1073,10 @@ router.post('/refresh', async (req, res) => {
         error: 'Refresh token has been revoked'
       });
     }
+
+    console.warn('[REFRESH REJECTED]', {
+        reason: 'REFRESH_COOKIE_HAS_EXPIRED'
+    });
 
     if (new Date(row.expires_at) <= new Date()) {
       await tokenStore.revokeRefreshRowByTokenId(tokenId);
@@ -1064,8 +1091,13 @@ router.post('/refresh', async (req, res) => {
       tokenPlain,
       row.token_hash
     );
+
     console.log('[AUTH REFRESH DEBUG] Token hash comparison:', {
         tokenMatches
+    });
+
+    console.warn('[REFRESH REJECTED]', {
+        reason: 'REFRESH_COOKIE_MISMATCH'
     });
 
     if (!tokenMatches) {
@@ -1090,6 +1122,10 @@ router.post('/refresh', async (req, res) => {
     );
 
     const user = userResult?.data?.[0];
+
+    console.warn('[REFRESH REJECTED]', {
+        reason: 'USER NOT_FOUND'
+    });
 
     if (!user) {
         await tokenStore.revokeRefreshRowByTokenId(tokenId);
@@ -1135,6 +1171,9 @@ router.post('/refresh', async (req, res) => {
       accessToken
     });
   } catch (error) {
+    console.warn('[REFRESH REJECTED]', {
+        reason: 'REFRESH_COOKIE_FAILED'
+    });
     if (error.message === 'REFRESH_TOKEN_INVALID') {
       clearRefreshCookie(res);
 

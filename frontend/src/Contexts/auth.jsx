@@ -149,6 +149,7 @@ function AuthProvider({ children }) {
 
             const profileResponse = await fetch(`${API_URL}/auth/reload-data`, {
               method: 'GET',
+              cache: 'no-store',
               headers: {
                 Authorization: `Bearer ${newToken}`
               }
@@ -309,6 +310,7 @@ function AuthProvider({ children }) {
     try {
       const response = await fetch(`${API_URL}/auth/reload-data`, {
         method: "GET",
+        cache: 'no-store',
         headers: {
           Authorization: `Bearer ${tokenValue}`,
         },
@@ -386,6 +388,7 @@ function AuthProvider({ children }) {
     try {
       const response = await fetch(`${API_URL}/auth/reload-data`, {
         method: "GET",
+        cache: 'no-store',
         headers: {
           Authorization: `Bearer ${tokenValue}`,
         },
