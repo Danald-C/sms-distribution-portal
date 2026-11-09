@@ -74,8 +74,8 @@ export default function GetContacts(){
 
       if (!phoneData) return;
 
-      const allNumbers = phoneData.phone_numbers?.data || phoneData.phone_numbers;
-      const groupAssociations = phoneData.phoneNumGrpAssociations?.data || phoneData.phone_numbers;
+      const allNumbers = phoneData.phone_numbers?.data || [];
+      const groupAssociations = phoneData.phoneNumGrpAssociations?.data || [];
 
       // Respect the currently selected group.
       let existingNumbers = allNumbers;
@@ -472,7 +472,9 @@ export default function GetContacts(){
     selectedIS.multi[0][mode] = checked;
     if(selectedIS.multi[0][mode]){ // First clear all already selected if in the Check All state
       selectedIS.multi[1][mode].map(contact => processSelected(contact, mode));
-    }
+    }/* else{
+      selectedOS = {...selectedIS, mode: 0, single: {}};
+    } */
     let selDataType = [contacts.existing_numbers, contacts.new_numbers[0]];
     selDataType[mode].map(contact => processSelected(contact, mode));
   }
@@ -673,6 +675,7 @@ export default function GetContacts(){
                   })
                 }
                 className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                autoFocus
               >
                 {data.phoneNumbersData.phone_number_groups.data.map((each, i) =>
                   toGroup.activeGroup.id != each.id && (
