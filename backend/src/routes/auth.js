@@ -907,25 +907,40 @@ router.get('/remove-user', authMiddleware, (req, res) => {
 router.post('/save-contacts', authMiddleware, async (req, res) => {
   try{
     // console.log(req.body)
-    // req.body.contacts.map(async (person) => await db.functions.tablecreateRow("phone_numbers", {user_id: req.body.user_id, phone_number: person[1], date_created: new Date(), full_name: person[0], email: person[2] ? person[2] : "" }))
+    // let phone_numbers = await db.functions.tableGetRows('phone_numbers', { user_id: req.user.id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
+    // let get_updated = [];
     if(req.query.action == "create"){
       // req.body.map(async (person) => await db.functions.tableCreateRow("phone_numbers", {user_id: req.query.user_id, phone_number: person.phone_number, created_at: new Date(), full_name: person.full_name, email: person.email || "" }));
-      req.body.map(async (number) => await db.functions.tableCreateRow("phone_numbers", {user_id: req.user.id, phone_number: number.phone_number, created_at: new Date(), full_name: number.full_name, email: number.email || "" }));
+      req.body.map(async (number) => {
+        await db.functions.tableCreateRow("phone_numbers", {user_id: req.user.id, phone_number: number.phone_number, created_at: new Date(), full_name: number.full_name, email: number.email || "" });
+      });
     }
     if(req.query.action == "update"){
-      req.body.map(async (number) => await db.functions.tableUpdateRow("phone_numbers", {id: number.id, full_name: number.full_name, phone_number: number.phone_number, email: number.email }));
+      req.body.map(async (number) => {
+        await db.functions.tableUpdateRow("phone_numbers", {id: number.id, full_name: number.full_name, phone_number: number.phone_number, email: number.email })
+      });
     }
     if(req.query.action == "remove"){
       req.body.map(async (number) => {
-        // await db.functions.removeUser("pngroups_and_pn_association", { phone_number_id: person.id, user_id: req.query.user_id });
         await db.functions.removeUser("pngroups_and_pn_association", { phone_number_id: number.id, user_id: req.user.id });
-        // await db.functions.removeUser("phone_numbers", { id: person.id, user_id: req.query.user_id });
         await db.functions.removeUser("phone_numbers", { id: number.id, user_id: req.user.id });
       })
     }
-    // let phone_numbers = await db.functions.tableGetRows('phone_numbers', { user_id: req.query.user_id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
+
     let phone_numbers = await db.functions.tableGetRows('phone_numbers', { user_id: req.user.id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
-    // console.log(phone_numbers)
+    /* if(req.query.action == "create" && get_updated.length > 0){
+      get_updated.map(async (each) => {
+        phone_numbers.data.map(async (number, index) => {
+          if(number.id == each.id){
+            phone_numbers.data.splice(index, 1).unshift(each);
+          }
+        });
+      });
+    } */
+    // Remove the last item and insert it at the beginning
+    // fruits.unshift(fruits.pop());
+    // console.log(phone_numbers.data)
+    phone_numbers.data = [...phone_numbers.data].reverse();
   
     res.json({ Success: true, phone_numbers });
   }catch(error){
@@ -971,8 +986,7 @@ router.post('/group-processor', authMiddleware, async (req, res) => {
       }
       if(req.query.action == "add"){
         if(!phoneNumGrpAssociations.data.some(each_2 => each_2.group_id == req.body.group.id && each_2.phone_number_id == each_1.id)){
-          // phoneNumGrpAssociations.data.push(await db.functions.tableCreateRow("pngroups_and_pn_association", {group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.query.user_id }))
-          phoneNumGrpAssociations.data.push(await db.functions.tableCreateRow("pngroups_and_pn_association", {group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.user.id }))
+          phoneNumGrpAssociations.data.push(await db.functions.tableCreateRow("pngroups_and_pn_association", {group_id: req.body.group.id, phone_number_id: each_1.id, user_id: req.user.id }));
         }
       }
     });
@@ -1227,7 +1241,6 @@ router.post('/refresh', async (req, res) => {
   }
 }); */
 // Load the authenticated user's profile and dashboard data.
-// router.get('/reload-data', Middlewares.verifyJWTMiddleware, async (req, res) => {
 router.get('/reload-data', authMiddleware, async (req, res) => {
   try {
     // const user_id = req.user.user_id;

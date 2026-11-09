@@ -44,7 +44,7 @@ export default function ContactGrouping(){
             // const responseData = await ContactGroupRequest(0, Object.keys(selected).length > 0 ? "update" : "create");
             const responseData = await ContactGroupRequest(Object.keys(selected).length > 0 ? selected.id : 0, Object.keys(selected).length > 0 ? "update" : "create");
 
-                console.log("From Submit.", selected, responseData.phone_number_groups);
+                // console.log("From Submit.", selected, responseData.phone_number_groups);
             /* if(responseData.success){
                 setPhone_number_groups(responseData.phone_number_groups);
                 // functions.setPhoneNumbersData({...phoneNumbersData, phone_number_groups: responseData.phone_number_groups});
@@ -98,7 +98,7 @@ export default function ContactGrouping(){
                 setLoading(true)
                 const responseData = await response.json();
                 
-                console.log("And finally, loading is set to false.", [id, action], responseData);
+                // console.log("And finally, loading is set to false.", [id, action], responseData);
                 /* if(responseData.success){
                     setPhone_number_groups(responseData.phone_number_groups)
                 } */

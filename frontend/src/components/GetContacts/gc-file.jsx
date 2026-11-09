@@ -24,7 +24,7 @@ export default function GetContacts(){
   const [contacts, setContacts] = useState(setContactsOS);
   // const [contacts, setContacts] = useState({})
   // const [contacts, setContacts] = useState([["Danald","0502653700",""],["Helena","0244246167",""],["David","0558244996",""]])
-  const [clear, setClear] = useState(false);
+  const [loadData, setLoadData] = useState(true);
   const [loading, setLoading] = useState(true)
   const [alerts, setAlerts] = useState([])
   // let selectedOS = {single: {}, multi: [[], []], mode: 0};
@@ -68,33 +68,39 @@ export default function GetContacts(){
         return;
     }
 
-    const phoneData = data.phoneNumbersData;
+        // console.log("Page Top: ", loadData, data.phoneNumbersData, toGroup.activeGroup.id, accessToken, contacts);
+    if(loadData){
+      const phoneData = data.phoneNumbersData;
 
-    /* if (!phoneData) return;
+      if (!phoneData) return;
 
-    const allNumbers = phoneData.phone_numbers?.data || [];
-    const groupAssociations = phoneData.phoneNumGrpAssociations?.data || [];
+      const allNumbers = phoneData.phone_numbers?.data || phoneData.phone_numbers;
+      const groupAssociations = phoneData.phoneNumGrpAssociations?.data || phoneData.phone_numbers;
 
-    // Respect the currently selected group.
-    let existingNumbers = allNumbers;
+      // Respect the currently selected group.
+      let existingNumbers = allNumbers;
 
-    if (toGroup.activeGroup.id !== "all") {
-        const selectedGroupContacts = groupAssociations
-            .filter(each => each.group_id === toGroup.activeGroup.id)
-            .map(each => allNumbers.find(contact =>
-                contact.id === each.phone_number_id
-            ))
-            .filter(Boolean);
+      if (toGroup.activeGroup.id !== "all") {
+          const selectedGroupContacts = groupAssociations
+              .filter(each => each.group_id === toGroup.activeGroup.id)
+              .map(each => allNumbers.find(contact =>
+                  contact.id === each.phone_number_id
+              ))
+              .filter(Boolean);
 
-        existingNumbers = selectedGroupContacts;
+          existingNumbers = selectedGroupContacts;
+      }
+
+      setContacts(previous => ({
+          ...previous,
+          existing_numbers: existingNumbers,
+          all_numbers: allNumbers,
+          groupAssociations
+      }));
+        // console.log("Reloaded: ", existingNumbers, allNumbers, groupAssociations);
+
+      setLoadData(false);
     }
-
-    setContacts(previous => ({
-        ...previous,
-        existing_numbers: existingNumbers,
-        all_numbers: allNumbers,
-        groupAssociations
-    })); */
 
     setLoading(false);
   }, [
@@ -208,7 +214,6 @@ export default function GetContacts(){
             selectedIS.multi[1][mode] = setContactsOS.new_numbers[0];
             if(selectedIS.multi[1][mode].length > 0) setAlerts([{from: 2, type: "caution", message: "Numbers taken already cannot be taken again."}, ...alerts]);
           }
-          // console.log("Numbers taken already cannot be taken again.", JSON.stringify(contact));
           /* const response = await fetch(`${data.API_URL}/auth/save-contacts?user_id=${data.user.user_id}&action=${action}`, {
               method: 'POST',
               headers: {
@@ -229,10 +234,16 @@ export default function GetContacts(){
           const responseData = await response.json();
           
           if(responseData.Success){
+          // console.log("Returned Contact.", responseData.phone_numbers.data);
+            setContactsOS.all_numbers = responseData.phone_numbers.data;
+            if(toGroup.activeGroup.id == "all") setContactsOS.existing_numbers = responseData.phone_numbers.data;
+            functions.setPhoneNumbersData(previousData => ({
+                ...previousData,
+                phone_numbers: responseData.phone_numbers,
+            }));
             // Backend updated state isn't ready immediately, so also perform update on the frontend
-            contact.map(each_1 => {
+            /* contact.map(each_1 => {
               if(action == "create"){
-                // setContactsOS.all_numbers.push(each_1);
                 setContactsOS.all_numbers = [each_1, ...setContactsOS.all_numbers];
                 if(toGroup.activeGroup.id == "all") setContactsOS.existing_numbers = [each_1, ...setContactsOS.existing_numbers];
               }else{
@@ -247,12 +258,12 @@ export default function GetContacts(){
                   setContactsOS.existing_numbers = setContactsOS.existing_numbers.filter(each_2 => each_1.id !== each_2.id);
                 }
               }
-            });
+            }); */
           }
       }catch(error){
           //
       }finally{
-          setClear(true);
+          // setClear(true);
           setLoading(false);
       }
     }
@@ -261,7 +272,7 @@ export default function GetContacts(){
     setContacts(setContactsOS);
     // console.log("New numbers: ", setContactsOS);
     // processNumberGroup(toGroup.activeGroup);
-    selectedOS = {...selectedOS, multi: [[false, false], [[], []]]};
+    selectedOS = {...selectedOS, single: {}, multi: [[false, false], [[], []]]};
     setSelectedIS(selectedOS);
     // selectedIS.multi[1][mode].map(contact => processSelected(contact, mode)); // Remove those that were selected
     // if(action != "remove") processSelected(selectedOS.single, 0, false);
@@ -306,13 +317,14 @@ export default function GetContacts(){
         if(callSelf) processSelected(thisData, mode, false);
       }
 
-    setClear(false)
+    // setClear(false)
   }
 
   function removeMulti(mode){
     setContactsOS = contacts;
     selectedOS = {...selectedIS, mode: 0, single: {}};
     selectedOS.multi[0][mode] = false;
+    setToGroup({...toGroup, contactsToAdd: [], showAddToGroup: false, addToGroup: {}});
     saveContacts(selectedOS.multi[1][mode], mode, "remove");
     setSelectedIS(selectedOS);
 
@@ -405,6 +417,10 @@ export default function GetContacts(){
       }
     }
     setSelectedIS(selectedOS);
+    functions.setPhoneNumbersData(previousData => ({
+        ...previousData,
+        phoneNumGrpAssociations: setContactsOS.groupAssociations,
+    }));
     setToGroup(thisToGroup);
   }
 
@@ -629,6 +645,66 @@ export default function GetContacts(){
         </section>
       )}
 
+      {toGroup.showAddToGroup && (
+        <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-sky-100 bg-amber-50/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">
+                Manage group membership
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Choose a group for the selected contacts.
+              </p>
+            </div>
+
+            <span className="w-fit rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">
+              Group management
+            </span>
+          </div>
+
+          <div className="p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <select
+                aria-label="Destination contact group"
+                onChange={e =>
+                  prepState("add-group", {
+                    group: data.phoneNumbersData.phone_number_groups.data[e.target.value],
+                    setAddToGrp: true
+                  })
+                }
+                className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+              >
+                {data.phoneNumbersData.phone_number_groups.data.map((each, i) =>
+                  toGroup.activeGroup.id != each.id && (
+                    <option key={i} value={i}>
+                      {each.group_name}
+                    </option>
+                  )
+                )}
+              </select>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => prepState("active-group", { group: toGroup.activeGroup })}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => sendToGroup("add")}
+                  className="rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-800"
+                >
+                  Add to group
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
@@ -733,32 +809,6 @@ export default function GetContacts(){
           )}
         </div>
       </section>
-
-      {toGroup.showAddToGroup && (
-        <section className="rounded-2xl border border-sky-200 bg-white p-4 shadow-sm sm:p-6">
-          <h2 className="text-lg font-semibold text-slate-900">Manage group membership</h2>
-          <p className="mt-1 text-sm text-slate-500">Choose a group for the selected contacts.</p>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <select
-              aria-label="Destination contact group"
-              onChange={e => prepState("add-group", {group: data.phoneNumbersData.phone_number_groups.data[e.target.value], setAddToGrp: true})}
-              className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
-            >
-              {data.phoneNumbersData.phone_number_groups.data.map((each, i) => toGroup.activeGroup.id != each.id && (
-                <option key={i} value={i}>{each.group_name}</option>
-              ))}
-            </select>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => prepState("active-group", {group: toGroup.activeGroup})} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                Cancel
-              </button>
-              <button type="button" onClick={() => sendToGroup("add")} className="rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-800">
-                Add to group
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   )
 }
