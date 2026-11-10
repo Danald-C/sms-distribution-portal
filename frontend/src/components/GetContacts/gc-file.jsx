@@ -317,7 +317,7 @@ export default function GetContacts(){
     if(functions.temporaryStore({name: 'sms-list', value: [finalContacts, !toGroup.activeGroup.group_name ? "" : toGroup.activeGroup.group_name]}, 1, true)) navigate("/send-sms");
   }
 
-  async function sendToGroup(action, mode=0){
+  /* async function sendToGroup(action, mode=0){
     setContactsOS = contacts;
     selectedOS = selectedIS;
     let thisToGroup = toGroup;
@@ -335,14 +335,6 @@ export default function GetContacts(){
         try{
           setLoading(true)
           
-          /* const response = await fetch(`${data.API_URL}/auth/group-processor?user_id=${data.user.user_id}&action=${action}`, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({group: thisToGroup.addToGroup, contacts: thisToGroup.contactsToAdd}),
-              // body: JSON.stringify({group: thisToGroup, contacts: toGroup.contactsToAdd),
-          }) */
           const response = await functions.authenticatedFetch(
               `${data.API_URL}/auth/group-processor?action=${action}`,
               {
@@ -397,6 +389,239 @@ export default function GetContacts(){
         ...previousData,
         phoneNumGrpAssociations: setContactsOS.groupAssociations,
     }));
+    setToGroup(thisToGroup);
+  } */
+  async function sendToGroup(action, mode = 0) {
+
+    // Always use the latest React state.
+    let setContactsOS = contacts;
+    let selectedOS = selectedIS;
+    let thisToGroup = toGroup;
+
+    // Get available groups safely.
+    const groups = data.phoneNumbersData?.phone_number_groups?.data || [];
+
+    // Get selected contacts safely.
+    const selectedContacts = selectedIS?.multi?.[1]?.[mode] || [];
+
+    // =========================================
+    // STEP 1: OPEN THE ADD-TO-GROUP INTERFACE
+    // =========================================
+
+    if (action === "show") {
+
+        if (groups.length === 0) {
+            setAlerts(previous => [
+                ...previous,
+                {
+                    from: 2,
+                    type: "caution",
+                    message: "You haven't created any contact groups yet."
+                }
+            ]);
+            return;
+        }
+
+        if (selectedContacts.length === 0) {
+            setAlerts(previous => [
+                ...previous,
+                {
+                    from: 2,
+                    type: "caution",
+                    message: "Please select at least one contact."
+                }
+            ]);
+            return;
+        }
+
+        // Exclude the currently active group.
+        const availableGroups = groups.filter(
+            group =>
+                String(group.id) !== String(toGroup.activeGroup.id)
+        );
+
+        if (availableGroups.length === 0) {
+            setAlerts(previous => [
+                ...previous,
+                {
+                    from: 2,
+                    type: "caution",
+                    message: "You need another contact group before moving contacts."
+                }
+            ]);
+            return;
+        }
+
+        // Open the group-management interface.
+        setSelectedIS(previous => ({
+            ...previous,
+            mode
+        }));
+
+        setToGroup(previous => ({
+            ...previous,
+            showAddToGroup: true,
+            addToGroup: availableGroups[0],
+            contactsToAdd: [...selectedContacts]
+        }));
+
+        return;
+    }
+
+    // =========================================
+    // STEP 2: PROCESS GROUP MEMBERSHIP
+    // =========================================
+
+    thisToGroup.addToGroup =
+        action === "remove"
+            ? thisToGroup.activeGroup
+            : thisToGroup.addToGroup;
+
+    thisToGroup.contactsToAdd =
+        action === "remove"
+            ? selectedOS.multi[1][0]
+            : thisToGroup.contactsToAdd;
+
+    if (!thisToGroup.addToGroup ||
+        Object.keys(thisToGroup.addToGroup).length === 0) {
+
+        setAlerts(previous => [
+            ...previous,
+            {
+                from: 2,
+                type: "caution",
+                message: "Please select a destination group."
+            }
+        ]);
+
+        return;
+    }
+
+    if (!thisToGroup.contactsToAdd?.length) {
+        setAlerts(previous => [
+            ...previous,
+            {
+                from: 2,
+                type: "caution",
+                message: "You need to select contact(s) first."
+            }
+        ]);
+
+        return;
+    }
+
+    try {
+
+        setLoading(true);
+
+        const response = await functions.authenticatedFetch(
+            `${data.API_URL}/auth/group-processor?action=${action}`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    group: thisToGroup.addToGroup,
+                    contacts: thisToGroup.contactsToAdd
+                })
+            }
+        );
+
+        const responseData = await response.json();
+
+        if (!response.ok || !responseData.Success) {
+            throw new Error(
+                responseData.error ||
+                responseData.message ||
+                `Group operation failed: HTTP ${response.status}`
+            );
+        }
+
+        // Update group associations.
+        let updatedAssociations = [...setContactsOS.groupAssociations];
+
+        thisToGroup.contactsToAdd.forEach(contact => {
+
+            if (action === "add") {
+
+                const alreadyExists = updatedAssociations.some(
+                    association =>
+                        String(association.group_id) === String(thisToGroup.addToGroup.id) &&
+                        String(association.phone_number_id) === String(contact.id)
+                );
+
+                if (!alreadyExists) {
+                    updatedAssociations.push({
+                        group_id: thisToGroup.addToGroup.id,
+                        phone_number_id: contact.id,
+                        user_id: data.user.user_id
+                    });
+                }
+
+            } else if (action === "remove") {
+
+                updatedAssociations = updatedAssociations.filter(
+                    association =>
+                        !(
+                            String(association.group_id) === String(thisToGroup.addToGroup.id) &&
+                            String(association.phone_number_id) === String(contact.id)
+                        )
+                );
+
+            }
+
+        });
+
+        setContactsOS = {
+            ...setContactsOS,
+            groupAssociations: updatedAssociations
+        };
+
+        // Clear selections.
+        selectedOS = {
+            ...selectedOS,
+            single: {},
+            multi: [[false, false], [[], []]]
+        };
+
+        // Update the active group contacts.
+        getGroupNumbers(thisToGroup.activeGroup, setContactsOS);
+
+        thisToGroup = {
+            ...thisToGroup,
+            showAddToGroup: false,
+            addToGroup: {},
+            contactsToAdd: []
+        };
+
+        // Synchronize the shared context.
+        functions.setPhoneNumbersData(previousData => ({
+            ...previousData,
+            phoneNumGrpAssociations: {
+                ...previousData.phoneNumGrpAssociations,
+                data: updatedAssociations
+            }
+        }));
+
+    } catch (error) {
+
+        console.error("[CONTACT GROUP] Operation failed:", error);
+
+        setAlerts(previous => [
+            ...previous,
+            {
+                from: 2,
+                type: "error",
+                message: error.message || "Unable to update contact group."
+            }
+        ]);
+
+    } finally {
+        setLoading(false);
+    }
+
+    setSelectedIS(selectedOS);
     setToGroup(thisToGroup);
   }
 
@@ -778,9 +1003,9 @@ export default function GetContacts(){
                   Remove from group
                 </button>
               )}
-              <button type="button" onClick={() => sendToGroup("show", 0)} className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100">
+              {data.phoneNumbersData.phone_number_groups.data.length > 0 ? <button type="button" onClick={() => sendToGroup("show", 0)} className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100">
                 Add to group
-              </button>
+              </button> : ""}
               <button type="button" onClick={() => prepareSMS(0)} className="rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-800">
                 Prepare SMS
               </button>
