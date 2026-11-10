@@ -908,7 +908,7 @@ router.post('/save-contacts', authMiddleware, async (req, res) => {
   try{
     // console.log(req.body)
     // let phone_numbers = await db.functions.tableGetRows('phone_numbers', { user_id: req.user.id }, {orderBy: "id", desc: "ASC", page: 1, limit: 10});
-    // let get_updated = [];
+    let get_updated = [];
     if(req.query.action == "create"){
       // req.body.map(async (person) => await db.functions.tableCreateRow("phone_numbers", {user_id: req.query.user_id, phone_number: person.phone_number, created_at: new Date(), full_name: person.full_name, email: person.email || "" }));
       req.body.map(async (number) => {
@@ -921,8 +921,10 @@ router.post('/save-contacts', authMiddleware, async (req, res) => {
       });
     }
     if(req.query.action == "remove"){
+      // console.log("Removing: ", req.body)
       req.body.map(async (number) => {
         await db.functions.removeUser("pngroups_and_pn_association", { phone_number_id: number.id, user_id: req.user.id });
+        // get_updated.push(await db.functions.removeUser("pngroups_and_pn_association", { phone_number_id: number.id, user_id: req.user.id }));
         await db.functions.removeUser("phone_numbers", { id: number.id, user_id: req.user.id });
       })
     }
@@ -939,8 +941,8 @@ router.post('/save-contacts', authMiddleware, async (req, res) => {
     } */
     // Remove the last item and insert it at the beginning
     // fruits.unshift(fruits.pop());
-    // console.log(phone_numbers.data)
     phone_numbers.data = [...phone_numbers.data].reverse();
+    // console.log(get_updated)
   
     res.json({ Success: true, phone_numbers });
   }catch(error){

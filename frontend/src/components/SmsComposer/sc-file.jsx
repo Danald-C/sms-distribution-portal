@@ -379,7 +379,7 @@ export default function ComposeSMS({props}){
                                 value={sender}
                                 onChange={e => senderID(e.target.value)}
                                 maxLength={11}
-                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-base text-slate-900 outline-none transition placeholder:text-base placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                                 placeholder="e.g. DC Group"
                             />
                             <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
@@ -396,10 +396,10 @@ export default function ComposeSMS({props}){
                                     rows={6}
                                     value={message}
                                     onChange={e => changeMessage(e, 0)}
-                                    className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                    className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-4 text-base leading-7 text-slate-900 outline-none transition placeholder:text-base placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                                     placeholder="Write your SMS message here..."
                                 />
-                                <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                                <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
                                     <span>{message.length} characters</span>
                                     <button
                                         type="button"
@@ -511,7 +511,7 @@ export default function ComposeSMS({props}){
                                         rows={3}
                                         value={eachMess.message}
                                         onChange={e => changeMessage(e, index)}
-                                        className="w-full resize-y rounded-lg border border-slate-300 px-3 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                        className="w-full resize-y rounded-lg border border-slate-300 bg-white px-4 py-4 text-base leading-7 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                                     />
                                 </div>
                             ))}

@@ -110,35 +110,7 @@ export default function GetContacts(){
       toGroup.activeGroup.id
   ]);
 
-    
-    /* async function settingData(){
-      try{
-        let thisContent = {...contacts};
-        if(data.loadContent){
-          const response = await fetch(`${data.API_URL}/auth/refresh`, {
-            headers: {
-              Authorization: `Bearer ${data.accessToken}`,
-            },
-          });
-          const returnedResponse = await response.json();
-
-          if(returnedResponse.Success){
-            functions.setPhoneNumbersData(returnedResponse.allData);
-            thisContent = {...thisContent, existing_numbers: returnedResponse.allData.phone_numbers.data, all_numbers: returnedResponse.allData.phone_numbers.data, groupAssociations: returnedResponse.allData.phoneNumGrpAssociations.data}
-          }
-        }else{
-          if(data.phoneNumbersData.phone_numbers.data){
-            thisContent = {...thisContent, existing_numbers: data.phoneNumbersData.phone_numbers.data, all_numbers: data.phoneNumbersData.phone_numbers.data, groupAssociations: data.phoneNumbersData.phoneNumGrpAssociations.data}
-          }
-        }
-            // setContacts({...contacts, existing_numbers: data.phoneNumbersData.phone_numbers.data, all_numbers: data.phoneNumbersData.phone_numbers.data, groupAssociations: data.phoneNumbersData.phoneNumGrpAssociations.data});
-            setContacts(thisContent);
-        }catch(error){
-          //
-        }finally{
-        setLoading(false)
-      }
-    } */
+  
 
   function submit(e){
     e.preventDefault();
@@ -234,13 +206,17 @@ export default function GetContacts(){
           const responseData = await response.json();
           
           if(responseData.Success){
-          // console.log("Returned Contact.", responseData.phone_numbers.data);
-            setContactsOS.all_numbers = responseData.phone_numbers.data;
-            if(toGroup.activeGroup.id == "all") setContactsOS.existing_numbers = responseData.phone_numbers.data;
-            functions.setPhoneNumbersData(previousData => ({
-                ...previousData,
-                phone_numbers: responseData.phone_numbers,
-            }));
+            // console.log("Returned Contact.", contact, responseData.phone_numbers.data);
+            if(action == "get"){
+              setContactsOS.all_numbers = responseData.phone_numbers.data;
+              if(toGroup.activeGroup.id == "all") setContactsOS.existing_numbers = responseData.phone_numbers.data;
+              functions.setPhoneNumbersData(previousData => ({
+                  ...previousData,
+                  phone_numbers: responseData.phone_numbers,
+              }));
+            }else{
+              saveContacts(contact, mode, "get");
+            }
             // Backend updated state isn't ready immediately, so also perform update on the frontend
             /* contact.map(each_1 => {
               if(action == "create"){
